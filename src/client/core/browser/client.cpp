@@ -264,7 +264,10 @@ bool BrowserClient::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
 
     if (frame->IsMain() && !is_hash_change)
     {
-        manager_.ClearBrowserTexture(browserId_);
+        if (auto* inst = manager_.GetBrowserInstance(browserId_))
+        {
+            inst->clear_texture = true;
+        }
     }
 
     if (!IsVideoSiteUrl(url)) 

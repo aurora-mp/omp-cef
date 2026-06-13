@@ -75,6 +75,8 @@ struct BrowserInstance
     CefRefPtr<CefClient> devtools_client;
     CefRefPtr<CefBrowser> devtools_browser;
 
+    std::atomic<bool> clear_texture{false};
+
     explicit BrowserInstance(int id) : id(id), view(id) {}
 };
 
@@ -130,7 +132,6 @@ public:
     void DestroyAllBrowsers();
     void ReloadBrowser(int id, bool ignoreCache);
     void SetDevToolsEnabled(int browserId, bool enabled);
-    void ClearBrowserTexture(int id);
 
     // 3D World interaction
     void AttachBrowserToObject(int browserId, int objectId);

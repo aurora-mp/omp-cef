@@ -881,25 +881,7 @@ void BrowserManager::ReloadBrowser(int id, bool ignoreCache)
     }
 }
 
-void BrowserManager::ClearBrowserTexture(int id)
-{
-    if (CefCurrentlyOn(TID_UI) == false)
-    {
-        CefPostTask(TID_UI, base::BindOnce(&BrowserManager::ClearBrowserTexture, base::Unretained(this), id));
-        return;
-    }
 
-    if (auto* inst = GetBrowserInstance(id))
-    {
-        gta_.PostToMainThread([this, id]() {
-            if (auto* inst_main = GetBrowserInstance(id))
-            {
-                inst_main->view.ClearTexture();
-            }
-        });
-        ClearPendingPaint(id);
-    }
-}
 
 void BrowserManager::SetDevToolsEnabled(int browserId, bool enabled)
 {
@@ -1073,6 +1055,12 @@ bool BrowserManager::RenderAll()
     {
         if (!inst)
             continue;
+
+        if (inst->clear_texture.exchange(false))
+        {
+            inst->view.ClearTexture();
+            ClearPendingPaint(id);
+        }
 
         if (!inst->visible)
         {
