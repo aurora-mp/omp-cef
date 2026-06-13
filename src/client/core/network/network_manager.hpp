@@ -46,6 +46,7 @@ public:
 	void SendBrowserCreateResult(int browserId, bool success, int code, const std::string& reason);
 
 	bool IsNonCefServer() const { return non_cef_server_.load(); }
+	void ResetNonCefServer() { non_cef_server_.store(false); }
 
 	using SessionActiveHandler = std::function<void(bool)>;
 	void SetSessionActiveHandler(SessionActiveHandler handler);

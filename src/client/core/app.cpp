@@ -93,6 +93,9 @@ void App::ResetSession()
 
     // Destroy all browsers
     browser_.DestroyAllBrowsers();
+
+    // Reset resource manager state so it can process handshakes again
+    resources_.OnDisconnect();
 }
 
 bool App::ResourcesReady() const
@@ -102,7 +105,7 @@ bool App::ResourcesReady() const
 
 void App::FlushPendingIfReady()
 {
-    if (!ResourcesReady())
+    if (!ResourcesReady() || network_.GetState() != ConnectionState::CONNECTED)
         return;
 
     if (!flushed_once_)
@@ -158,12 +161,22 @@ void App::FlushPendingIfReady()
 
 void App::Tick()
 {
+    auto *netGame = GetComponent<NetGameComponent>();
+
+    // Auto-reconnect logic: detect SA-MP disconnection
+    if (netGame && !netGame->IsConnected() && network_.GetState() != ConnectionState::DISCONNECTED)
+    {
+        LOG_INFO("[CEF] SA-MP disconnected (e.g. server restart). Dropping CEF network session.");
+        network_.Disconnect();
+        ResetSession();
+        network_.ResetNonCefServer();
+    }
+
     if (network_.GetState() == ConnectionState::DISCONNECTED && !network_.IsNonCefServer())
     {
         const auto now = ::GetTickCount64();
         const bool can_attempt_connect = (now >= next_connect_attempt_ms_);
 
-        auto *netGame = GetComponent<NetGameComponent>();
         if (can_attempt_connect && netGame)
         {
             const int mode = netGame->GetState();

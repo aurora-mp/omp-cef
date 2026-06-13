@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # You can change this path for development if you want to avoid manually copying and pasting the file (renderer.exe)
-set(DLL_DEPLOY_DIR "D:/Program Files (x86)/Rockstar Games/GTA San Andreas - Samp Addons/cef")
+set(DLL_DEPLOY_DIR "D:/Program Files (x86)/Rockstar Games/GTA San Andreas - Samp Addons/nsy")
 
 # Deps
 #find_package(asio CONFIG REQUIRED)

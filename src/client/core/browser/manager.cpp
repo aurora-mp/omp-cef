@@ -518,6 +518,8 @@ void BrowserManager::CreateBrowserInternal(
         return;
     }
 
+    std::lock_guard<std::recursive_mutex> lock(map_mutex_);
+
     if (browsers_.count(id))
     {
         LOG_ERROR("[CEF] CreateBrowserInternal: Browser with ID {} already exists (race condition?).", id);
@@ -603,6 +605,8 @@ void BrowserManager::CreateWorldBrowserInternal(
         return;
     }
 
+    std::lock_guard<std::recursive_mutex> lock(map_mutex_);
+
     if (browsers_.count(id))
     {
         LOG_ERROR("[CEF] CreateWorldBrowserInternal: Browser with ID {} already exists (race condition?).", id);
@@ -665,6 +669,8 @@ void BrowserManager::CreateWorld2DBrowserInternal(
                 pivotY));
         return;
     }
+
+    std::lock_guard<std::recursive_mutex> lock(map_mutex_);
 
     if (browsers_.count(id))
     {
@@ -766,6 +772,8 @@ void BrowserManager::DestroyBrowser(int id)
         return;
     }
 
+    std::lock_guard<std::recursive_mutex> lock(map_mutex_);
+
     player_stats_poll_.erase(id);
     pending_.erase(id);
 
@@ -813,6 +821,7 @@ void BrowserManager::DestroyBrowser(int id)
     }
 
     browsers_.erase(it);
+    audio_.RemoveStream(id);
     LOG_DEBUG("[CEF] Browser ID {} destroyed and removed from map.", id);
 }
 
@@ -825,9 +834,12 @@ void BrowserManager::DestroyAllBrowsers()
     }
 
     std::vector<int> ids;
-    ids.reserve(browsers_.size());
-    for (auto& kv : browsers_)
-        ids.push_back(kv.first);
+    {
+        std::lock_guard<std::recursive_mutex> lock(map_mutex_);
+        ids.reserve(browsers_.size());
+        for (auto& kv : browsers_)
+            ids.push_back(kv.first);
+    }
 
     for (int id : ids)
         DestroyBrowser(id);
@@ -978,6 +990,7 @@ void BrowserManager::OnBrowserCreated(int id, CefRefPtr<CefBrowser> browser)
 
 void BrowserManager::OnBrowserClosed(int id)
 {
+    std::lock_guard<std::recursive_mutex> lock(map_mutex_);
     browsers_.erase(id);
     pending_.erase(id);
     worldRenderers_.erase(id);
@@ -1011,6 +1024,7 @@ void BrowserManager::OnPaint(int id, const void* buffer, int width, int height, 
 
 bool BrowserManager::RenderAll()
 {
+    std::lock_guard<std::recursive_mutex> lock(map_mutex_);
     if (!draw_enabled_)
         return false;
 
@@ -1150,12 +1164,14 @@ void BrowserManager::OnAfterEntityRender(CEntity* entity)
 
 BrowserInstance* BrowserManager::GetBrowserInstance(int id)
 {
+    std::lock_guard<std::recursive_mutex> lock(map_mutex_);
     auto it = browsers_.find(id);
     return it != browsers_.end() ? it->second.get() : nullptr;
 }
 
 bool BrowserManager::IsAnyBrowserVisible() const
 {
+    std::lock_guard<std::recursive_mutex> lock(map_mutex_);
     for (const auto& [id, browser] : browsers_)
     {
         if (browser && browser->visible)
@@ -1166,6 +1182,7 @@ bool BrowserManager::IsAnyBrowserVisible() const
 
 bool BrowserManager::IsAnyBrowserFocused() const
 {
+    std::lock_guard<std::recursive_mutex> lock(map_mutex_);
     for (const auto& [id, instance] : browsers_)
     {
         if (instance && instance->view.IsFocused())
@@ -1493,6 +1510,7 @@ void BrowserManager::SetPlayerStatsPolling(int browserId, bool enabled, int inte
 
 void BrowserManager::TickGameData()
 {
+    std::lock_guard<std::recursive_mutex> lock(map_mutex_);
     if (!initialized_ || player_stats_poll_.empty())
         return;
 

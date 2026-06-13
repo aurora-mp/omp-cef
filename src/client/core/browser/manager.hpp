@@ -202,6 +202,7 @@ private:
     // The single source for which browser has focus. -1 means none.
     int focusedBrowserId_ = -1;
 
+    mutable std::recursive_mutex map_mutex_;
     std::unordered_map<int, std::unique_ptr<BrowserInstance>> browsers_;
     std::unordered_map<int, std::unique_ptr<WorldRenderer>> worldRenderers_;
     std::unordered_map<CEntity*, int> entityToBrowserId_;

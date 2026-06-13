@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 project(Renderer LANGUAGES CXX)
 
 # You can change this path for development if you want to avoid manually copying and pasting the file (renderer.exe)
-set(FILE_DEPLOY_DIR "D:/Program Files (x86)/Rockstar Games/GTA San Andreas - Samp Addons/cef")
+set(FILE_DEPLOY_DIR "D:/Program Files (x86)/Rockstar Games/GTA San Andreas - Samp Addons/nsy")
 
 set(RENDERER_SRC main.cpp)
 add_executable(${PROJECT_NAME} WIN32 ${RENDERER_SRC})

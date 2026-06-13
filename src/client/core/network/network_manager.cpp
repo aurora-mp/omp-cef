@@ -60,6 +60,8 @@ void NetworkManager::Shutdown()
 {
 	Disconnect();
 
+	io_context_.stop();
+
 	if (network_thread_.joinable()) {
 		network_thread_.join();
 	}
@@ -91,21 +93,26 @@ void NetworkManager::Connect(int playerid)
 	try {
 		if (io_context_.stopped()) io_context_.restart();
 
-		asio::error_code ec;
-		socket_.open(asio::ip::udp::v4(), ec);
-		if (ec) throw std::runtime_error("Socket open failed: " + ec.message());
-		socket_.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), 0), ec);
-		if (ec) throw std::runtime_error("Socket bind failed: " + ec.message());
+		if (!socket_.is_open()) {
+			asio::error_code ec;
+			socket_.open(asio::ip::udp::v4(), ec);
+			if (ec) throw std::runtime_error("Socket open failed: " + ec.message());
+			socket_.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), 0), ec);
+			LOG_INFO("[CLIENT] Socket opened and bound to local port {}.", socket_.local_endpoint().port());
 
-		LOG_INFO("[CLIENT] Socket opened and bound to local port {}.", socket_.local_endpoint().port());
-		DoReceive();
+			DoReceive();
 
-		if (!network_thread_.joinable()) {
-			network_thread_ = std::thread([this]() {
-				LOG_INFO("[CLIENT] Network thread started.");
-				io_context_.run();
-				LOG_INFO("[CLIENT] Network thread finished.");
-			});
+			if (!network_thread_.joinable()) {
+				network_thread_ = std::thread([this]() {
+					LOG_INFO("[CLIENT] Network thread started.");
+					
+					// Use a work guard so the thread never exits until Shutdown()
+					auto work_guard = asio::make_work_guard(io_context_);
+					io_context_.run();
+					
+					LOG_INFO("[CLIENT] Network thread finished.");
+				});
+			}
 		}
 
 		auto keys = SecurityManager::GenerateKeys();
@@ -140,8 +147,7 @@ void NetworkManager::Disconnect()
                 kcp_instance_ = nullptr;
             }
         }
-
-		if (socket_.is_open()) socket_.close();
+		// Do NOT close the socket here so the thread stays alive for reconnections.
 	});
 }
 
@@ -179,11 +185,13 @@ void NetworkManager::DoReceive()
 		asio::buffer(recv_buffer_), remote_endpoint_,
 		[this](std::error_code ec, std::size_t bytes_recvd) {
 			if (!ec && bytes_recvd > 0) {
-				if (remote_endpoint_ == server_endpoint_) {
+				if (remote_endpoint_ == server_endpoint_ && state_ != ConnectionState::DISCONNECTED) {
 					HandleRawMessage(recv_buffer_.data(), bytes_recvd);
 				}
 			}
-			if (state_ != ConnectionState::DISCONNECTED) {
+			
+			// Always continue receiving unless the socket was closed by Shutdown()
+			if (socket_.is_open()) {
 				DoReceive();
 			}
 		}
