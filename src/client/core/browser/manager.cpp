@@ -1716,9 +1716,18 @@ void BrowserManager::DispatchExternalBeginFramesOnUi()
 {
     CEF_REQUIRE_UI_THREAD();
 
+    static uint64_t last_tick = 0;
+    uint64_t current_tick = ::GetTickCount64();
+    if (current_tick - last_tick < 16)
+    {
+        begin_frame_task_pending_.store(false, std::memory_order_release);
+        return;
+    }
+    last_tick = current_tick;
+
     for (auto& [id, inst] : browsers_)
     {
-        if (!inst || !inst->browser || !inst->browser->IsValid())
+        if (!inst || !inst->browser || !inst->browser->IsValid() || !inst->visible)
             continue;
 
         if (auto host = inst->browser->GetHost())
