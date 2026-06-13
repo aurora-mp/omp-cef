@@ -1,0 +1,113 @@
+name: Reusable - Build Client
+on:
+  workflow_call:
+    inputs:
+      version: { required: true, type: string }
+      cef-version: { required: true, type: string }
+      cef-arch: { required: true, type: string }
+      build-type: { required: true, type: string }
+
+jobs:
+  build-client:
+    runs-on: windows-latest
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+
+      - name: Cache vcpkg (archives + installed)
+        uses: actions/cache@v4
+        id: cache-vcpkg
+        with:
+          path: |
+            C:\Users\runneradmin\AppData\Local\vcpkg\archives
+            ${{ github.workspace }}\vcpkg_installed
+            ${{ env.VCPKG_ROOT }}
+          key: vcpkg-client-${{ runner.os }}-x86-${{ inputs.build-type }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Bootstrap vcpkg
+        if: steps.cache-vcpkg.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "${{ env.VCPKG_ROOT }}"
+          cd "${{ env.VCPKG_ROOT }}"
+          .\bootstrap-vcpkg.bat
+
+      - name: Restore CEF cache
+        uses: ./.github/actions/setup-cef
+        with:
+          cef-version: ${{ inputs.cef-version }}
+          cef-arch:    ${{ inputs.cef-arch }}
+
+      - name: Configure and Build Client
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VCPKG_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
+
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build-type }} -A Win32 \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_TOOLCHAIN_FILE" \
+            -DVCPKG_FEATURE_FLAGS=manifests\;binarycaching \
+            -DVCPKG_MANIFEST_FEATURES=client \
+            -DVCPKG_TARGET_TRIPLET=x86-windows-static \
+            -DDEV_ALL_TARGETS=OFF \
+            -DBUILD_CLIENT=ON \
+            -DBUILD_SERVER_OMP=OFF \
+            -DBUILD_SERVER_SAMP=OFF
+
+          cmake --build build --config ${{ inputs.build-type }} --parallel
+
+      - name: Package client files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUILD_DIR="build"
+          CFG="${{ inputs.build-type }}"
+
+          CLIENT_DLL="${BUILD_DIR}/src/client/core/${CFG}/client.dll"
+          LOADER_ASI="${BUILD_DIR}/src/client/loader/${CFG}/cef.asi"
+          RENDERER_EXE="${BUILD_DIR}/src/client/renderer/${CFG}/Renderer.exe"
+
+          rm -rf package && mkdir -p package/cef
+
+          # Copy CEF distribution
+          CEF_ROOT_PATH="deps/cef/cef_binary_${{ inputs.cef-version }}_${{ inputs.cef-arch }}"
+          test -d "${CEF_ROOT_PATH}" || (echo "CEF not found at ${CEF_ROOT_PATH}" && exit 1)
+
+          cp -R "${CEF_ROOT_PATH}/Release/"* package/cef/
+          cp -R "${CEF_ROOT_PATH}/Resources/"* package/cef/
+          rm -f package/cef/bootstrap.exe package/cef/bootstrapc.exe || true
+
+          # Copy client binaries
+          test -f "$CLIENT_DLL" || (echo "Missing $CLIENT_DLL" && exit 1)
+          test -f "$LOADER_ASI" || (echo "Missing $LOADER_ASI" && exit 1)
+          test -f "$RENDERER_EXE" || (echo "Missing $RENDERER_EXE" && exit 1)
+
+          cp "$CLIENT_DLL" package/cef/client.dll
+          cp "$LOADER_ASI" package/cef.asi
+          cp "$RENDERER_EXE" package/cef/renderer.exe
+
+      - name: Compress client files
+        shell: pwsh
+        run: Compress-Archive -Path package/* -DestinationPath client-files-v${{ inputs.version }}.zip -Force
+
+      - name: Upload Client Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-files-v${{ inputs.version }}
+          path: client-files-v${{ inputs.version }}.zip
+
+      - name: Upload Individual Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: individual-files-v${{ inputs.version }}
+          path: |
+            package/cef/client.dll
+            package/cef/renderer.exe
+            package/cef.asi

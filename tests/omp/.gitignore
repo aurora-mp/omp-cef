@@ -1,0 +1,10 @@
+*.xml
+.amx
+components/*
+models/*
+qawno/*
+log.txt
+omp-server.exe
+.vscode
+gamemodes/test.pwn
+gamemodes/test.amx

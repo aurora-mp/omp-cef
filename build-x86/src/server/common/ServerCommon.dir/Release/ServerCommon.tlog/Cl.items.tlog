@@ -1,0 +1,8 @@
+C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\api.cpp;C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\Release\api.obj
+C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\logger.cpp;C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\Release\logger.obj
+C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\natives.cpp;C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\Release\natives.obj
+C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\network.cpp;C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\Release\network.obj
+C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\plugin.cpp;C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\Release\plugin.obj
+C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\resource_manager.cpp;C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\Release\resource_manager.obj
+C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\security.cpp;C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\Release\security.obj
+C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\session.cpp;C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\Release\session.obj

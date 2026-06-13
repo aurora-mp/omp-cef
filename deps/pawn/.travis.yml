@@ -1,0 +1,43 @@
+language: c
+
+os:
+  - linux
+  - osx
+
+addons:
+  apt:
+    packages:
+      - gcc-multilib
+      - cmake
+  brew:
+    packages:
+      - cmake
+
+before_script:
+  - mkdir build && cd build
+  - cmake ../source/compiler
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_C_FLAGS="-m32 -Werror -Wno-address-of-packed-member"
+          -DCPACK_GENERATOR="TGZ;ZIP"
+
+script:
+  - make
+  - make test
+  - make package
+
+after_failure:
+  - cat Testing/Temporary/LastTest.log
+
+deploy:
+  provider: releases
+  api_key:
+    secure: T90PePvue0C/4u5EwZKGLUc/aXyu2U2XMGDzdNdpla6wXONWABg3F6mY3vYXRRxdWPhz8W6qEFwQmbEIIExxLFrgH8CUGDoF/9dftaCxJIBw59WRwfbaIAWiK5p6wLzZBfRuZQWJMwWdjDu8woAYzfxWBL37hbZateUrcAB7lkc=
+  file_glob: true
+  file:
+    - 'pawnc-*-linux.tar.gz'
+    - 'pawnc-*-macos.zip'
+  draft: true
+  skip_cleanup: true
+  on:
+    tags: true
+    repo: pawn-lang/compiler

@@ -1,0 +1,10 @@
+^C:\USERS\EVO_L\DOWNLOADS\NSYCEF\OMP-CEF\BUILD-X86\CMAKEFILES\9C0E4DAE2E71D98B6C649C288BD659F6\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/evo_l/Downloads/NSYCef/omp-cef -BC:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86 --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/OmpCef.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

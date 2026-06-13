@@ -1,0 +1,21 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/_deps_kcp/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/src/shared/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/src/server/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/_deps_tinyaes/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/src/server/common/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/_deps_omp_sdk/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/_deps_omp_sdk/lib/glm/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/_deps_omp_sdk/lib/glm/glm/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/_deps_omp_sdk/lib/robin-hood-hashing/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/_deps_omp_sdk/lib/span-lite/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/_deps_omp_sdk/lib/string-view-lite/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/src/server/omp/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/_deps_sampgdk/cmake_install.cmake",
+		"C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/src/server/samp/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

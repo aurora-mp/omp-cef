@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\api.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\logger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\natives.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\network.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\plugin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\resource_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\security.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\session.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\api.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\bridge.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\encoding.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\logger.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\natives.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\network.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\plugin.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\resource_manager.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\security.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\session.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\deps\tiny-aes\aes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\deps\tiny-aes\aes.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\common\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\vcpkg_installed\x86-windows-static\share\nlohmann_json\nlohmann_json.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{08166EC2-F042-33E2-A37D-7732C4C09F20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{D56327D9-4CEB-362A-8BD2-7B29428D04DE}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

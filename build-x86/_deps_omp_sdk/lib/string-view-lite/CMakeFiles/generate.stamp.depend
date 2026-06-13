@@ -1,0 +1,8 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakePackageConfigHelpers.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/GNUInstallDirs.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/WriteBasicConfigVersionFile.cmake
+C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/CMakeFiles/cmake.verify_globs
+C:/Users/evo_l/Downloads/NSYCef/omp-cef/deps/omp-sdk/lib/string-view-lite/CMakeLists.txt
+C:/Users/evo_l/Downloads/NSYCef/omp-cef/deps/omp-sdk/lib/string-view-lite/cmake/string-view-lite-config-version.cmake.in
+C:/Users/evo_l/Downloads/NSYCef/omp-cef/deps/omp-sdk/lib/string-view-lite/cmake/string-view-lite-config.cmake.in

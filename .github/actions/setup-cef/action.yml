@@ -1,0 +1,23 @@
+name: Setup CEF Cache
+description: Restores CEF binaries from cache if available.
+
+inputs:
+  cef-version:
+    description: CEF version to cache
+    required: true
+  cef-arch:
+    description: CEF architecture to cache (e.g. windows32, windows64)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Cache CEF
+      uses: actions/cache@v4
+      with:
+        path: |
+          build/_cef_downloads
+          deps/cef/cef_binary_${{ inputs.cef-version }}_${{ inputs.cef-arch }}
+        key: cef-dist-${{ inputs.cef-version }}-${{ inputs.cef-arch }}-${{ runner.os }}
+        restore-keys: |
+          cef-dist-${{ inputs.cef-version }}-${{ inputs.cef-arch }}-${{ runner.os }}-

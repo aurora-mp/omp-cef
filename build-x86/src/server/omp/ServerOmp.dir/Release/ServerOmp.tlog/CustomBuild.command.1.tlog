@@ -1,0 +1,10 @@
+^C:\USERS\EVO_L\DOWNLOADS\NSYCEF\OMP-CEF\SRC\SERVER\OMP\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/evo_l/Downloads/NSYCef/omp-cef -BC:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86 --check-stamp-file C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/src/server/omp/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

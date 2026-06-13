@@ -1,0 +1,315 @@
+name: Reusable - Build Server
+
+on:
+  workflow_call:
+    inputs:
+      target: { required: true, type: string } # ServerOmp / ServerSamp
+      arch: { required: true, type: string }   # x86 / x64
+      build-type: { required: true, type: string } # Debug / Release
+
+jobs:
+  build-windows:
+    name: Build ${{ inputs.target }} (${{ inputs.arch }}) on Windows
+    runs-on: windows-latest
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+    steps:
+      - name: Checkout code and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Resolve build variables
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "${{ inputs.target }}" in
+            ServerOmp|OMP|Omp|omp)
+              OPTION="OMP"
+              BUILD_TARGET="ServerOmp"
+              ;;
+            ServerSamp|SAMP|Samp|samp)
+              OPTION="SAMP"
+              BUILD_TARGET="ServerSamp"
+              ;;
+            *)
+              echo "Unknown inputs.target='${{ inputs.target }}' (expected ServerOmp/ServerSamp)"
+              exit 1
+              ;;
+          esac
+
+          if [[ "${{ inputs.arch }}" == "x86" ]]; then
+            TRIPLET="x86-windows-static"
+            CMAKE_ARCH="-A Win32"
+          else
+            TRIPLET="x64-windows-static"
+            CMAKE_ARCH="-A x64"
+          fi
+
+          echo "option=$OPTION"              >> "$GITHUB_OUTPUT"
+          echo "build_target=$BUILD_TARGET"  >> "$GITHUB_OUTPUT"
+          echo "triplet=$TRIPLET"            >> "$GITHUB_OUTPUT"
+          echo "cmake_arch=$CMAKE_ARCH"      >> "$GITHUB_OUTPUT"
+
+      - name: Cache vcpkg + installed
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.VCPKG_ROOT }}
+            ${{ github.workspace }}/vcpkg_installed
+            ~/.cache/vcpkg/archives
+            C:\Users\runneradmin\AppData\Local\vcpkg\archives
+          key: vcpkg-server-windows-${{ steps.vars.outputs.triplet }}-${{ inputs.build-type }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Setup vcpkg
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -d "${VCPKG_ROOT}/.git" ]]; then
+            git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
+          else
+            if git -C "${VCPKG_ROOT}" rev-parse --is-shallow-repository | grep -q true; then
+              git -C "${VCPKG_ROOT}" fetch --unshallow --prune --tags
+            else
+              git -C "${VCPKG_ROOT}" fetch --prune --tags
+            fi
+          fi
+
+          "${VCPKG_ROOT}/bootstrap-vcpkg.bat"
+
+      - name: vcpkg install (manifest)
+        shell: bash
+        env:
+          VCPKG_FEATURE_FLAGS: manifests,binarycaching
+        run: |
+          set -euo pipefail
+          "${VCPKG_ROOT}/vcpkg.exe" install \
+            --triplet "${{ steps.vars.outputs.triplet }}" \
+            --feature-flags=manifests,binarycaching \
+            --x-feature=server
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          set -euo pipefail
+          VCPKG_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build-type }} \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_TOOLCHAIN_FILE" \
+            -DVCPKG_TARGET_TRIPLET="${{ steps.vars.outputs.triplet }}" \
+            -DVCPKG_FEATURE_FLAGS=manifests\;binarycaching \
+            -DVCPKG_MANIFEST_FEATURES=server \
+            -DDEV_ALL_TARGETS=OFF \
+            -DBUILD_CLIENT=OFF \
+            -DBUILD_SERVER_OMP=OFF \
+            -DBUILD_SERVER_SAMP=OFF \
+            -DBUILD_SERVER_${{ steps.vars.outputs.option }}=ON \
+            ${{ steps.vars.outputs.cmake_arch }}
+
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build build --config ${{ inputs.build-type }} --target ${{ steps.vars.outputs.build_target }} --parallel
+
+      - name: Upload Server Binary (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-${{ steps.vars.outputs.build_target }}-${{ inputs.arch }}-Windows
+          path: |
+            build/**/${{ inputs.build-type }}/**/*.dll
+            build/**/*.dll
+
+  build-linux:
+    name: Build ${{ inputs.target }} (${{ inputs.arch }}) on Linux (container ubuntu:20.04)
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      CMAKE_VERSION: 3.31.10
+
+    steps:
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          dpkg --add-architecture i386 || true
+          apt-get update
+
+          apt-get install -y --no-install-recommends \
+            ca-certificates git \
+            build-essential ninja-build pkg-config \
+            curl zip unzip tar python3 \
+            binutils patch \
+            gcc-multilib g++-multilib linux-libc-dev:i386 \
+            autoconf automake libtool m4 gettext
+
+          echo "Installing CMake ${CMAKE_VERSION}..."
+          curl -fsSL -o cmake.tar.gz "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz"
+          mkdir -p /opt/cmake
+          tar -xzf cmake.tar.gz -C /opt/cmake --strip-components=1
+          rm -f cmake.tar.gz
+
+          echo "/opt/cmake/bin" >> "$GITHUB_PATH"
+
+          rm -rf /var/lib/apt/lists/*
+
+          echo "glibc version in container:"
+          ldd --version 2>&1 | sed -n '1p'
+
+          echo "cmake version in container:"
+          /opt/cmake/bin/cmake --version 2>&1 | sed -n '1p'
+
+      - name: Checkout code and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Resolve build variables
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "${{ inputs.target }}" in
+            ServerOmp|OMP|Omp|omp)
+              OPTION="OMP"
+              BUILD_TARGET="ServerOmp"
+              ;;
+            ServerSamp|SAMP|Samp|samp)
+              OPTION="SAMP"
+              BUILD_TARGET="ServerSamp"
+              ;;
+            *)
+              echo "Unknown inputs.target='${{ inputs.target }}' (expected ServerOmp/ServerSamp)"
+              exit 1
+              ;;
+          esac
+
+          if [[ "${{ inputs.arch }}" == "x86" ]]; then
+            TRIPLET="x86-linux"
+          else
+            TRIPLET="x64-linux"
+          fi
+
+          echo "option=$OPTION"              >> "$GITHUB_OUTPUT"
+          echo "build_target=$BUILD_TARGET"  >> "$GITHUB_OUTPUT"
+          echo "triplet=$TRIPLET"            >> "$GITHUB_OUTPUT"
+
+      - name: Cache vcpkg + installed
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.VCPKG_ROOT }}
+            ${{ github.workspace }}/vcpkg_installed
+            ~/.cache/vcpkg/archives
+          key: vcpkg-server-linux-${{ steps.vars.outputs.triplet }}-${{ inputs.build-type }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Setup vcpkg
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -d "${VCPKG_ROOT}/.git" ]]; then
+            git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
+          else
+            if git -C "${VCPKG_ROOT}" rev-parse --is-shallow-repository | grep -q true; then
+              git -C "${VCPKG_ROOT}" fetch --unshallow --prune --tags
+            else
+              git -C "${VCPKG_ROOT}" fetch --prune --tags
+            fi
+          fi
+
+          "${VCPKG_ROOT}/bootstrap-vcpkg.sh"
+
+      - name: Prepare 32-bit Linux toolchain (chainload)
+        if: inputs.arch == 'x86'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${GITHUB_WORKSPACE}/cmake"
+          cat > "${GITHUB_WORKSPACE}/cmake/linux-i386-toolchain.cmake" << 'EOF'
+          set(CMAKE_SYSTEM_NAME Linux)
+          set(CMAKE_SYSTEM_PROCESSOR x86)
+
+          set(CMAKE_C_FLAGS   "-m32" CACHE STRING "" FORCE)
+          set(CMAKE_CXX_FLAGS "-m32" CACHE STRING "" FORCE)
+          set(CMAKE_EXE_LINKER_FLAGS    "-m32" CACHE STRING "" FORCE)
+          set(CMAKE_SHARED_LINKER_FLAGS "-m32" CACHE STRING "" FORCE)
+          EOF
+
+      - name: vcpkg install (manifest)
+        shell: bash
+        env:
+          VCPKG_FEATURE_FLAGS: manifests,binarycaching
+        run: |
+          set -euo pipefail
+          "${VCPKG_ROOT}/vcpkg" install \
+            --triplet "${{ steps.vars.outputs.triplet }}" \
+            --feature-flags=manifests,binarycaching \
+            --x-feature=server
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cmake --version 2>&1 | sed -n '1p'
+
+          VCPKG_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          EXTRA_ARGS=""
+
+          if [[ "${{ inputs.arch }}" == "x86" ]]; then
+            EXTRA_ARGS="-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=${GITHUB_WORKSPACE}/cmake/linux-i386-toolchain.cmake"
+          fi
+
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build-type }} \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_TOOLCHAIN_FILE" \
+            -DVCPKG_TARGET_TRIPLET="${{ steps.vars.outputs.triplet }}" \
+            -DVCPKG_FEATURE_FLAGS=manifests\;binarycaching \
+            -DVCPKG_MANIFEST_FEATURES=server \
+            -DDEV_ALL_TARGETS=OFF \
+            -DBUILD_CLIENT=OFF \
+            -DBUILD_SERVER_OMP=OFF \
+            -DBUILD_SERVER_SAMP=OFF \
+            -DBUILD_SERVER_${{ steps.vars.outputs.option }}=ON \
+            $EXTRA_ARGS
+
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build build --config ${{ inputs.build-type }} --target ${{ steps.vars.outputs.build_target }} --parallel
+
+      - name: Diagnose GLIBC requirements (Linux)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "---- Built .so files ----"
+          find build -type f -name "*.so" -print || true
+
+          echo "---- GLIBC symbols required by each .so ----"
+          while IFS= read -r sofile; do
+            echo ""
+            echo "== $sofile =="
+            objdump -T "$sofile" | grep -Eo 'GLIBC_[0-9]+\.[0-9]+' | sort -Vu || true
+          done < <(find build -type f -name "*.so" -print)
+
+      - name: Upload Server Binary (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-${{ steps.vars.outputs.build_target }}-${{ inputs.arch }}-Linux
+          path: |
+            build/**/${{ inputs.build-type }}/**/*.so
+            build/**/*.so

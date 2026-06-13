@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\samp\config_cfg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\samp\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\samp\samp_bridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\deps\samp-plugin-sdk\amxplugin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\samp\common.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\samp\config_cfg.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\samp\samp_bridge.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\deps\tiny-aes\aes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\deps\tiny-aes\aes.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\samp\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\src\server\samp\plugin.def">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\$(Configuration)\api.obj">
+      <Filter>Object Libraries</Filter>
+    </Object>
+    <Object Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\$(Configuration)\logger.obj">
+      <Filter>Object Libraries</Filter>
+    </Object>
+    <Object Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\$(Configuration)\natives.obj">
+      <Filter>Object Libraries</Filter>
+    </Object>
+    <Object Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\$(Configuration)\network.obj">
+      <Filter>Object Libraries</Filter>
+    </Object>
+    <Object Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\$(Configuration)\plugin.obj">
+      <Filter>Object Libraries</Filter>
+    </Object>
+    <Object Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\$(Configuration)\resource_manager.obj">
+      <Filter>Object Libraries</Filter>
+    </Object>
+    <Object Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\$(Configuration)\security.obj">
+      <Filter>Object Libraries</Filter>
+    </Object>
+    <Object Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\common\ServerCommon.dir\$(Configuration)\session.obj">
+      <Filter>Object Libraries</Filter>
+    </Object>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\src\server\samp\ServerSamp_version.rc">
+      <Filter>Source Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{08166EC2-F042-33E2-A37D-7732C4C09F20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Object Libraries">
+      <UniqueIdentifier>{BDF5A43E-808B-3950-8C47-6A3A20D60A1F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{D56327D9-4CEB-362A-8BD2-7B29428D04DE}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,27 @@
+[submodule "deps/omp-sdk"]
+	path = deps/omp-sdk
+	url = https://github.com/openmultiplayer/open.mp-sdk
+[submodule "deps/pawn"]
+	path = deps/pawn
+	url = https://github.com/openmultiplayer/compiler
+[submodule "deps/pawn-natives"]
+	path = deps/pawn-natives
+	url = https://github.com/Y-Less/pawn-natives
+[submodule "deps/samp-api"]
+	path = deps/samp-api
+	url = https://github.com/BlastHackNet/SAMP-API
+[submodule "deps/samp-cmake"]
+	path = deps/samp-cmake
+	url = https://github.com/AmyrAhmady/samp-cmake-modules
+[submodule "deps/samp-plugin-sdk"]
+	path = deps/samp-plugin-sdk
+	url = https://github.com/AmyrAhmady/samp-plugin-sdk
+[submodule "deps/asio"]
+	path = deps/asio
+	url = https://github.com/chriskohlhoff/asio
+[submodule "deps/kcp"]
+	path = deps/kcp
+	url = https://github.com/skywind3000/kcp
+[submodule "deps/tiny-aes"]
+	path = deps/tiny-aes
+	url = https://github.com/kokke/tiny-AES-c

@@ -1,0 +1,12 @@
+{
+  'test_type': 'output_check',
+  'errors': """
+gh_217.pwn(11) : user warning: this is warning 1
+gh_217.pwn(13) : user warning: this is warning 2
+gh_217.pwn(15) : user warning: this is  warning 3
+gh_217.pwn(17) : user warning: this is  warning 4
+gh_217.pwn(37) : warning 234: function is deprecated (symbol "p") don't use  this  function please
+gh_217.pwn(42) : warning 234: function is deprecated (symbol "f") don't use  this  function please
+gh_217.pwn(43) : warning 234: function is deprecated (symbol "p") don't use  this  function please
+"""
+}

@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\CMakeFiles\601f7f68662b8ef1040a3e32a9425d7a\Experimental.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\deps\kcp\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\build-x86\_deps_kcp\CMakeFiles\Experimental" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{4C1DBF51-A248-3B4C-9790-CFAB2622E8B5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,8 @@
+*.amx
+announce.exe
+samp-npc.exe
+samp-server.exe
+include/*
+npcmodes/*
+pawno/*
+plugins/*

@@ -1,0 +1,84 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      }
+    },
+    {
+      "name": "win-base",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "generator": "Visual Studio 17 2022",
+      "architecture": "Win32",
+      "environment": {
+        "VCPKG_VISUAL_STUDIO_PATH": "C:/Program Files/Microsoft Visual Studio/2022/Community"
+      }
+    },
+    {
+      "name": "client-win-x86-debug",
+      "inherits": "win-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_TARGET_TRIPLET": "x86-windows-static",
+        "VCPKG_MANIFEST_FEATURES": "client",
+        "BUILD_CLIENT": "ON",
+        "BUILD_SERVER_OMP": "OFF",
+        "BUILD_SERVER_SAMP": "OFF"
+      }
+    },
+    {
+      "name": "omp-win-x86-debug",
+      "inherits": "win-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_TARGET_TRIPLET": "x86-windows-static",
+        "VCPKG_MANIFEST_FEATURES": "server",
+        "BUILD_CLIENT": "OFF",
+        "BUILD_SERVER_OMP": "ON",
+        "BUILD_SERVER_SAMP": "OFF"
+      }
+    },
+    {
+      "name": "samp-win-x86-debug",
+      "inherits": "win-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_TARGET_TRIPLET": "x86-windows-static",
+        "VCPKG_MANIFEST_FEATURES": "server",
+        "BUILD_CLIENT": "OFF",
+        "BUILD_SERVER_OMP": "OFF",
+        "BUILD_SERVER_SAMP": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "Client x86 (Debug)",
+      "configurePreset": "client-win-x86-debug",
+      "configuration": "Debug",
+      "targets": ["Client", "Loader", "Renderer"]
+    },
+    {
+      "name": "OMP x86 (Debug)",
+      "configurePreset": "omp-win-x86-debug",
+      "configuration": "Debug",
+      "targets": ["ServerOmp"]
+    },
+    {
+      "name": "Server Samp x86 (Debug)",
+      "configurePreset": "samp-win-x86-debug",
+      "configuration": "Debug",
+      "targets": ["ServerSamp"]
+    }
+  ]
+}

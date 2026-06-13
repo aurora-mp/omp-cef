@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\deps\sampgdk\sampgdk.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\deps\sampgdk\sampgdk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\evo_l\Downloads\NSYCef\omp-cef\deps\sampgdk\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{08166EC2-F042-33E2-A37D-7732C4C09F20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{D56327D9-4CEB-362A-8BD2-7B29428D04DE}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

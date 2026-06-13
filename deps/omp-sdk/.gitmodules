@@ -1,0 +1,13 @@
+[submodule "lib/glm"]
+	path = lib/glm
+	url = https://github.com/g-truc/glm
+	branch = master
+[submodule "lib/robin-hood-hashing"]
+	path = lib/robin-hood-hashing
+	url = https://github.com/martinus/robin-hood-hashing
+[submodule "lib/span-lite"]
+	path = lib/span-lite
+	url = https://github.com/martinmoene/span-lite
+[submodule "lib/string-view-lite"]
+	path = lib/string-view-lite
+	url = https://github.com/martinmoene/string-view-lite

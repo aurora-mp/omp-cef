@@ -1,0 +1,8 @@
+{
+  'test_type': 'output_check',
+  'errors': """
+raw_error.pwn(1) : user error: "raw error\\"
+
+Compilation aborted.
+"""
+}

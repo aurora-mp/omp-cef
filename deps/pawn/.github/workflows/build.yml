@@ -1,0 +1,57 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "master"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Generate build files
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ../source/compiler -A Win32 -G "Visual Studio 17 2022" -DCMAKE_C_FLAGS="/D sNAMEMAX=63"
+          cmake --build . --config Release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: omp-pawn-compiler-win32
+          path: build/Release/*
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Build using docker
+        shell: bash
+        run: |
+          cd docker
+          chmod +x ./build.sh
+          chmod +x ./docker-entrypoint.sh
+          ./build.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: omp-pawn-compiler-linux
+          path: |
+            docker/build/libpawnc.so
+            docker/build/pawncc
+            docker/build/pawndisasm
+            docker/build/pawnruns

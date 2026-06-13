@@ -1,0 +1,18 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakeCInformation.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakeCommonLanguageInclude.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakeLanguageInformation.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Compiler/CMakeCommonCompilerMacros.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Compiler/MSVC-C.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Compiler/MSVC.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Internal/CMakeCLinkerInformation.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Internal/CMakeCommonLinkerInformation.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Linker/MSVC-C.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Linker/MSVC.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Platform/Linker/Windows-MSVC-C.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Platform/Linker/Windows-MSVC.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Platform/Windows-MSVC-C.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Platform/Windows-MSVC.cmake
+C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/CMakeFiles/4.2.3/CMakeCCompiler.cmake
+C:/Users/evo_l/Downloads/NSYCef/omp-cef/build-x86/CMakeFiles/cmake.verify_globs
+C:/Users/evo_l/Downloads/NSYCef/omp-cef/deps/tiny-aes/CMakeLists.txt

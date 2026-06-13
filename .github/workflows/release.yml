@@ -1,0 +1,51 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: read
+  issues: read
+  
+jobs:
+  call-build-client:
+    name: Build Client
+    uses: ./.github/workflows/build-client-reusable.yml
+    with:
+      version: ${{ github.event.inputs.version }}
+      cef-version: 143.0.14+gdd46a37+chromium-143.0.7499.193
+      cef-arch: windows32
+      build-type: Release
+
+  call-build-server:
+    name: Build Server (${{ matrix.target }} ${{ matrix.arch }})
+    needs: [call-build-client]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: ServerOmp
+            arch: x86
+          - target: ServerOmp
+            arch: x64
+          - target: ServerSamp
+            arch: x86
+    uses: ./.github/workflows/build-server-reusable.yml
+    with:
+      target: ${{ matrix.target }}
+      arch: ${{ matrix.arch }}
+      build-type: Release
+
+  call-create-release:
+    name: Create Release
+    needs: [call-build-client, call-build-server]
+    uses: ./.github/workflows/create-release-reusable.yml
+    with:
+      version: ${{ github.event.inputs.version }}
+    secrets: inherit

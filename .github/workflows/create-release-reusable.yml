@@ -1,0 +1,121 @@
+name: Reusable - Create GitHub Release
+on:
+  workflow_call:
+    inputs:
+      version: { required: true, type: string }
+
+permissions:
+  contents: write
+  pull-requests: read
+  issues: read
+  
+jobs:
+  release:
+    name: Changelog and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code (full history)
+        uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: temp-assets
+
+      - name: Display downloaded assets structure
+        run: ls -lR temp-assets
+
+      - name: Prepare Release Packages
+        id: prepare_packages
+        shell: bash
+        run: |
+          set -e
+          mkdir -p release-assets
+          mkdir -p package-samp/plugins
+          mkdir -p package-omp-x86/components
+          mkdir -p package-omp-x64/components
+
+          echo "Processing client files..."
+          if [ -d "temp-assets/client-files-v${{ inputs.version }}" ]; then
+            mv temp-assets/client-files-v${{ inputs.version }}/* release-assets/
+          fi
+          if [ -d "temp-assets/individual-files-v${{ inputs.version }}" ]; then
+            mv temp-assets/individual-files-v${{ inputs.version }}/cef.asi release-assets/ || true
+            mv temp-assets/individual-files-v${{ inputs.version }}/cef/client.dll release-assets/ || true
+            mv temp-assets/individual-files-v${{ inputs.version }}/cef/renderer.exe  release-assets/ || true
+          fi
+
+          echo "Processing server files..."
+          INCLUDE_FILE="src/server/cef.inc"
+          if [ -f "$INCLUDE_FILE" ]; then
+            cp "$INCLUDE_FILE" package-samp/cef.inc
+            cp "$INCLUDE_FILE" package-omp-x86/cef.inc
+            cp "$INCLUDE_FILE" package-omp-x64/cef.inc
+          else
+            echo "Warning: Pawn include file not found at $INCLUDE_FILE"
+          fi
+
+          find temp-assets/server-ServerSamp-x86-Windows -name "*.dll" -exec mv {} package-samp/plugins/cef.dll \; || true
+          find temp-assets/server-ServerSamp-x86-Linux  -name "*.so"  -exec mv {} package-samp/plugins/cef.so  \; || true
+          
+          find temp-assets/server-ServerOmp-x86-Windows -name "*.dll" -exec mv {} package-omp-x86/components/Cef.dll \; || true
+          find temp-assets/server-ServerOmp-x86-Linux  -name "*.so"  -exec mv {} package-omp-x86/components/Cef.so  \; || true
+
+          find temp-assets/server-ServerOmp-x64-Windows -name "*.dll" -exec mv {} package-omp-x64/components/Cef.dll \; || true
+          find temp-assets/server-ServerOmp-x64-Linux  -name "*.so"  -exec mv {} package-omp-x64/components/Cef.so  \; || true
+          
+          echo "Creating server archives..."
+          (cd package-samp && zip -r ../release-assets/cef-samp-v${{ inputs.version }}.zip .)
+          (cd package-omp-x86 && zip -r ../release-assets/cef-omp-v${{ inputs.version }}-x86.zip .)
+          (cd package-omp-x64 && zip -r ../release-assets/cef-omp-v${{ inputs.version }}-x64.zip .)
+
+      - name: Generate New Changelog Section
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff-section
+        with:
+          config: .github/cliff.toml
+          args: --unreleased
+        env:
+          GIT_CLIFF_TAG: v${{ inputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Full Changelog File
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > new_section.md <<'EOF'
+          ${{ steps.git-cliff-section.outputs.content }}
+          EOF
+
+          if [ -f CHANGELOG.md ]; then
+            cat new_section.md CHANGELOG.md > CHANGELOG.md.tmp
+            mv CHANGELOG.md.tmp CHANGELOG.md
+            rm -f new_section.md
+          else
+            mv new_section.md CHANGELOG.md
+          fi
+
+      - name: Commit and push updated CHANGELOG.md
+        shell: bash
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          if ! git diff --quiet CHANGELOG.md; then
+            git add CHANGELOG.md
+            git commit -m "chore: update CHANGELOG for v${{ inputs.version }}"
+            git push origin HEAD
+          fi
+      
+      - name: Create GitHub Release and Upload Assets
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: v${{ inputs.version }}
+          file: release-assets/*
+          file_glob: true
+          body: ${{ steps.git-cliff-section.outputs.content }}
+          prerelease: false
+          overwrite: true
