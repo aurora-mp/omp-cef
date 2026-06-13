@@ -1718,16 +1718,22 @@ void BrowserManager::DispatchExternalBeginFramesOnUi()
 
     static uint64_t last_tick = 0;
     uint64_t current_tick = ::GetTickCount64();
-    if (current_tick - last_tick < 16)
+    bool is_throttled_tick = (current_tick - last_tick < 16);
+
+    if (!is_throttled_tick)
     {
-        begin_frame_task_pending_.store(false, std::memory_order_release);
-        return;
+        last_tick = current_tick;
     }
-    last_tick = current_tick;
 
     for (auto& [id, inst] : browsers_)
     {
         if (!inst || !inst->browser || !inst->browser->IsValid() || !inst->visible)
+            continue;
+
+        // If the browser is busy loading assets (Vite/React compiling), spamming
+        // begin frames at 144Hz+ causes the Chromium compositor to abort (Invalid first_paint).
+        // We throttle it to ~60Hz ONLY while loading. Once loaded, it runs at uncapped FPS!
+        if (inst->browser->IsLoading() && is_throttled_tick)
             continue;
 
         if (auto host = inst->browser->GetHost())
