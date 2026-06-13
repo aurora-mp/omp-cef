@@ -244,6 +244,29 @@ bool BrowserClient::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
         bool user_gesture,
         bool is_redirect){
     const std::string url = request->GetURL().ToString();
+    const std::string current_url = frame->GetURL().ToString();
+
+    bool is_hash_change = false;
+    if (!current_url.empty()) {
+        auto hash_pos = url.find('#');
+        if (hash_pos != std::string::npos) {
+            std::string url_without_hash = url.substr(0, hash_pos);
+            std::string current_url_without_hash = current_url;
+            auto current_hash_pos = current_url.find('#');
+            if (current_hash_pos != std::string::npos) {
+                current_url_without_hash = current_url.substr(0, current_hash_pos);
+            }
+            if (url_without_hash == current_url_without_hash) {
+                is_hash_change = true;
+            }
+        }
+    }
+
+    if (frame->IsMain() && !is_hash_change)
+    {
+        manager_.ClearBrowserTexture(browserId_);
+    }
+
     if (!IsVideoSiteUrl(url)) 
         return false;
 

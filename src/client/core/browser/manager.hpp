@@ -130,6 +130,7 @@ public:
     void DestroyAllBrowsers();
     void ReloadBrowser(int id, bool ignoreCache);
     void SetDevToolsEnabled(int browserId, bool enabled);
+    void ClearBrowserTexture(int id);
 
     // 3D World interaction
     void AttachBrowserToObject(int browserId, int objectId);

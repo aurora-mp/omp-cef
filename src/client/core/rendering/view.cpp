@@ -72,6 +72,12 @@ void View::OnPaint(const void* buffer, int width, int height)
     wrapper_->Update(buffer, width, height, false);
 }
 
+void View::ClearTexture()
+{
+    if (wrapper_)
+        wrapper_->Clear();
+}
+
 void View::Draw()
 {
     if (!wrapper_ || !active_) 

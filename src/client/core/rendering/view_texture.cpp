@@ -200,6 +200,52 @@ void ViewTexture::Draw(int x, int y)
     device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(Vertex));
 }
 
+void ViewTexture::Clear()
+{
+    if (!texture_)
+        return;
+        
+    D3DLOCKED_RECT rect;
+    if (SUCCEEDED(texture_->LockRect(0, &rect, nullptr, 0)))
+    {
+        if (rect.Pitch == width_ * 4) 
+        { 
+            memset(rect.pBits, 0, static_cast<size_t>(width_) * height_ * 4); 
+        }
+        else 
+        {
+            for (int y = 0; y < height_; ++y) 
+            {
+                memset(static_cast<uint8_t*>(rect.pBits) + y * rect.Pitch, 0, static_cast<size_t>(width_) * 4);
+            }
+        }
+        texture_->UnlockRect(0);
+    }
+    
+    if (rwRaster_)
+    {
+        uint8_t* rasterPixels = RwRasterLock(rwRaster_, 0, rwRASTERLOCKWRITE);
+        if (rasterPixels) 
+        {
+            const int rwPitch = rwRaster_->stride;
+            const int srcPitch = width_ * 4;
+            
+            if (rwPitch == srcPitch) 
+            { 
+                memset(rasterPixels, 0, static_cast<size_t>(height_) * srcPitch); 
+            }
+            else 
+            {
+                for (int y = 0; y < height_; ++y) 
+                {
+                    memset(rasterPixels + y * rwPitch, 0, srcPitch);
+                }
+            }
+            RwRasterUnlock(rwRaster_);
+        }
+    }
+}
+
 void ViewTexture::OnDeviceLost()
 {
     LOG_DEBUG("[ViewTexture] Device lost, releasing D3D9 texture only");

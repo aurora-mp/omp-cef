@@ -23,6 +23,9 @@ public:
     // Performs a simple full texture update from a raw buffer
     void OnPaint(const void* buffer, int width, int height);
 
+    // Clears the texture by filling it with transparent pixels
+    void ClearTexture();
+
     // Renders the texture at its current position as a 2D overlay
     void Draw();
 

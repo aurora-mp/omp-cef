@@ -759,9 +759,27 @@ void BrowserManager::SetBrowserVisible(int id, bool visible)
 
     instance->visible = visible;
 
-    // If we hide a focused browser, drop focus to avoid stuck input.
-    if (!visible && focusedBrowserId_ == id)
-        FocusBrowser(id, false);
+    if (!visible)
+    {
+        gta_.PostToMainThread([this, id]() {
+            if (auto* inst_main = GetBrowserInstance(id))
+            {
+                inst_main->view.ClearTexture();
+            }
+        });
+        ClearPendingPaint(id);
+        
+        // If we hide a focused browser, drop focus to avoid stuck input.
+        if (focusedBrowserId_ == id)
+            FocusBrowser(id, false);
+    }
+    else
+    {
+        if (instance->browser && instance->browser->GetHost())
+        {
+            instance->browser->GetHost()->Invalidate(PET_VIEW);
+        }
+    }
 }
 
 void BrowserManager::DestroyBrowser(int id)
@@ -860,6 +878,26 @@ void BrowserManager::ReloadBrowser(int id, bool ignoreCache)
             ignoreCache ? inst->browser->ReloadIgnoreCache() : inst->browser->Reload();
             LOG_DEBUG("[CEF] Reloading browser with ID {}.", id);
         }
+    }
+}
+
+void BrowserManager::ClearBrowserTexture(int id)
+{
+    if (CefCurrentlyOn(TID_UI) == false)
+    {
+        CefPostTask(TID_UI, base::BindOnce(&BrowserManager::ClearBrowserTexture, base::Unretained(this), id));
+        return;
+    }
+
+    if (auto* inst = GetBrowserInstance(id))
+    {
+        gta_.PostToMainThread([this, id]() {
+            if (auto* inst_main = GetBrowserInstance(id))
+            {
+                inst_main->view.ClearTexture();
+            }
+        });
+        ClearPendingPaint(id);
     }
 }
 
@@ -1692,7 +1730,7 @@ void BrowserManager::DispatchExternalBeginFramesOnUi()
 
     for (auto& [id, inst] : browsers_)
     {
-        if (!inst || !inst->visible || !inst->browser || !inst->browser->IsValid())
+        if (!inst || !inst->browser || !inst->browser->IsValid())
             continue;
 
         if (auto host = inst->browser->GetHost())
