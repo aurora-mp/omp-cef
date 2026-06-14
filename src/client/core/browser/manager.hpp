@@ -76,6 +76,7 @@ struct BrowserInstance
     CefRefPtr<CefBrowser> devtools_browser;
 
     std::atomic<bool> clear_texture{false};
+    std::atomic<bool> has_painted_once{false};
 
     explicit BrowserInstance(int id) : id(id), view(id) {}
 };

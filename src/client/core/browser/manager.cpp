@@ -1025,6 +1025,8 @@ void BrowserManager::OnPaint(int id, const void* buffer, int width, int height, 
     if (!instance)
         return;
 
+    instance->has_painted_once.store(true, std::memory_order_relaxed);
+
     auto& pending_paint = pending_[id];
     {
         std::lock_guard<std::mutex> lock(pending_paint.mutex);
@@ -1730,10 +1732,10 @@ void BrowserManager::DispatchExternalBeginFramesOnUi()
         if (!inst || !inst->browser || !inst->browser->IsValid() || !inst->visible)
             continue;
 
-        // If the browser is busy loading assets (Vite/React compiling), spamming
-        // begin frames at 144Hz+ causes the Chromium compositor to abort (Invalid first_paint).
-        // We throttle it to ~60Hz ONLY while loading. Once loaded, it runs at uncapped FPS!
-        if (inst->browser->IsLoading() && is_throttled_tick)
+        // If the browser hasn't even produced its first frame yet (Vite/React is still compiling),
+        // spamming begin frames at 144Hz+ causes the Chromium compositor to abort (Invalid first_paint).
+        // We throttle it to ~60Hz ONLY until the first successful paint. Once painted, it runs at uncapped FPS!
+        if (!inst->has_painted_once.load(std::memory_order_relaxed) && is_throttled_tick)
             continue;
 
         if (auto host = inst->browser->GetHost())
