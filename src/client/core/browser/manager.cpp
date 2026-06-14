@@ -1025,7 +1025,13 @@ void BrowserManager::OnPaint(int id, const void* buffer, int width, int height, 
     if (!instance)
         return;
 
-    instance->has_painted_once.store(true, std::memory_order_relaxed);
+    // Reject frames while loading to guarantee no old/intermediate frames cause ghosting!
+    if (instance->is_loading.load(std::memory_order_relaxed))
+        return;
+
+    // Reject frames for a short duration after an SPA navigation to prevent ghosting of the old DOM
+    if (::GetTickCount64() < instance->ignore_paints_until.load(std::memory_order_relaxed))
+        return;
 
     auto& pending_paint = pending_[id];
     {
@@ -1068,6 +1074,22 @@ bool BrowserManager::RenderAll()
         {
             ClearPendingPaint(id);
             continue;
+        }
+
+        uint64_t ignore_until = inst->ignore_paints_until.load(std::memory_order_relaxed);
+        if (ignore_until > 0 && ::GetTickCount64() >= ignore_until)
+        {
+            inst->ignore_paints_until.store(0, std::memory_order_relaxed);
+            // Force a repaint now that the ignore window is over, in case the page is static
+            if (inst->browser && inst->browser->GetHost())
+            {
+                if (CefCurrentlyOn(TID_UI))
+                    inst->browser->GetHost()->Invalidate(PET_VIEW);
+                else
+                    CefPostTask(TID_UI, base::BindOnce([](CefRefPtr<CefBrowser> b) { 
+                        if (b && b->GetHost()) b->GetHost()->Invalidate(PET_VIEW); 
+                    }, inst->browser));
+            }
         }
 
         auto it = pending_.find(id);
@@ -1732,10 +1754,10 @@ void BrowserManager::DispatchExternalBeginFramesOnUi()
         if (!inst || !inst->browser || !inst->browser->IsValid() || !inst->visible)
             continue;
 
-        // If the browser hasn't even produced its first frame yet (Vite/React is still compiling),
-        // spamming begin frames at 144Hz+ causes the Chromium compositor to abort (Invalid first_paint).
-        // We throttle it to ~60Hz ONLY until the first successful paint. Once painted, it runs at uncapped FPS!
-        if (!inst->has_painted_once.load(std::memory_order_relaxed) && is_throttled_tick)
+        // If the browser is currently loading a new page, spamming begin frames at 144Hz+ 
+        // causes the Chromium compositor to abort (Invalid first_paint).
+        // We throttle it to ~60Hz ONLY while loading. Once loaded, it runs at uncapped FPS!
+        if (inst->is_loading.load(std::memory_order_relaxed) && is_throttled_tick)
             continue;
 
         if (auto host = inst->browser->GetHost())

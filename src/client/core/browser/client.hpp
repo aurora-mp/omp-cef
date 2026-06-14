@@ -28,6 +28,7 @@ public:
     CefRefPtr<CefRequestHandler> GetRequestHandler() override { return this; }
     CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
     CefRefPtr<CefDisplayHandler> GetDisplayHandler() override { return this; }
+    CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
     CefRefPtr<CefAudioHandler>  GetAudioHandler()  override { return this; }
     bool OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
         CefRefPtr<CefFrame> frame,
@@ -36,6 +37,12 @@ public:
 
     // CefLifeSpanHandler overrides
     void OnAfterCreated(CefRefPtr<CefBrowser> browser) override;
+
+    // CefLoadHandler overrides
+    void OnLoadingStateChange(CefRefPtr<CefBrowser> browser,
+                              bool isLoading,
+                              bool canGoBack,
+                              bool canGoForward) override;
 
     // CefRenderHandler overrides
     void GetViewRect(CefRefPtr<CefBrowser> browser, CefRect& rect) override;

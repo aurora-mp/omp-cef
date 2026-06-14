@@ -129,6 +129,17 @@ void BrowserClient::GetViewRect(CefRefPtr<CefBrowser> /*browser*/, CefRect& rect
     rect = manager_.GetBrowserInstance(browserId_)->view.rect();
 }
 
+void BrowserClient::OnLoadingStateChange(CefRefPtr<CefBrowser> browser,
+                                         bool isLoading,
+                                         bool canGoBack,
+                                         bool canGoForward)
+{
+    if (auto* inst = manager_.GetBrowserInstance(browserId_))
+    {
+        inst->is_loading.store(isLoading, std::memory_order_relaxed);
+    }
+}
+
 void BrowserClient::OnPaint(CefRefPtr<CefBrowser> /*browser*/,
                             PaintElementType type,
                             const RectList& dirtyRects,
@@ -267,7 +278,7 @@ bool BrowserClient::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
         if (auto* inst = manager_.GetBrowserInstance(browserId_))
         {
             inst->clear_texture = true;
-            inst->has_painted_once.store(false, std::memory_order_relaxed);
+            inst->ignore_paints_until.store(::GetTickCount64() + 150, std::memory_order_relaxed);
         }
     }
 
