@@ -267,6 +267,7 @@ bool BrowserClient::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
         if (auto* inst = manager_.GetBrowserInstance(browserId_))
         {
             inst->clear_texture = true;
+            inst->has_painted_once.store(false, std::memory_order_relaxed);
         }
     }
 
