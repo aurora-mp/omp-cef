@@ -775,6 +775,12 @@ void BrowserManager::SetBrowserVisible(int id, bool visible)
     }
     else
     {
+        // When showing the browser, it might have just received an SPA route change (React) via emit_event.
+        // If we don't delay, the immediate Invalidate() below will paint the old DOM before React finishes.
+        // We delay accepting paints for a brief moment (100ms) to let React render the new DOM.
+        // After 100ms, RenderAll() will automatically trigger a fresh Invalidate() to draw the new UI.
+        instance->ignore_paints_until.store(::GetTickCount64() + 100, std::memory_order_relaxed);
+
         if (instance->browser && instance->browser->GetHost())
         {
             instance->browser->GetHost()->Invalidate(PET_VIEW);
