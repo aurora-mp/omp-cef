@@ -152,6 +152,19 @@ void CefApi::FocusBrowser(int playerid, int browserid, bool focused)
 	plugin_.SendPacketToPlayer(playerid, PacketType::EmitEvent, event);
 }
 
+void CefApi::LoadUrl(int playerid, int browserid, const std::string& url)
+{
+    LOG_DEBUG("LoadUrl: playerid=%d, browserid=%d, url=%.*s", playerid, browserid, static_cast<int>(url.size()), url.data());
+
+    EmitEventPacket event;
+
+    event.name = CefEvent::Server::LoadUrl;
+    event.args.emplace_back(browserid);
+    event.args.emplace_back(url);
+
+    plugin_.SendPacketToPlayer(playerid, PacketType::EmitEvent, event);
+}
+
 void CefApi::EnableDevTools(int playerid, int browserid, bool enabled)
 {
 	LOG_DEBUG("EnableDevTools: playerid=%d, browserid=%d, enabled=%d", playerid, browserid, enabled);
@@ -309,4 +322,38 @@ void CefApi::ExitGame(int playerid)
 	event.name = CefEvent::Server::ExitGame;
 
 	plugin_.SendPacketToPlayer(playerid, PacketType::EmitEvent, event);
+}
+
+void CefApi::SetEscapeMenuMode(int playerid, int mode)
+{
+    if (mode < 0 || mode > 2)
+    {
+        LOG_ERROR("SetEscapeMenuMode: invalid mode %d for playerid=%d", mode, playerid);
+        return;
+    }
+
+    LOG_DEBUG("SetEscapeMenuMode: playerid=%d, mode=%d", playerid, mode);
+
+    EmitEventPacket event;
+    event.name = CefEvent::Server::SetEscapeMenuMode;
+    event.args.emplace_back(mode);
+
+    plugin_.SendPacketToPlayer(playerid, PacketType::EmitEvent, event);
+}
+
+void CefApi::SetPlayerListMode(int playerid, int mode)
+{
+    if (mode < 0 || mode > 2)
+    {
+        LOG_ERROR("SetPlayerListMode: invalid mode %d for playerid=%d", mode, playerid);
+        return;
+    }
+
+    LOG_DEBUG("SetPlayerListMode: playerid=%d, mode=%d", playerid, mode);
+
+    EmitEventPacket event;
+    event.name = CefEvent::Server::SetPlayerListMode;
+    event.args.emplace_back(mode);
+
+    plugin_.SendPacketToPlayer(playerid, PacketType::EmitEvent, event);
 }

@@ -889,6 +889,32 @@ void BrowserManager::ReloadBrowser(int id, bool ignoreCache)
     }
 }
 
+void BrowserManager::LoadUrl(int id, const std::string& url)
+{
+    if (!CefCurrentlyOn(TID_UI))
+    {
+        CefPostTask(TID_UI, base::BindOnce(&BrowserManager::LoadUrl, base::Unretained(this), id, url));
+        return;
+    }
+
+    auto* inst = GetBrowserInstance(id);
+    if (!inst || !inst->browser)
+    {
+        LOG_WARN("[CEF] LoadUrl: Could not find browser with ID {}.", id);
+        return;
+    }
+
+    auto frame = inst->browser->GetMainFrame();
+    if (!frame)
+    {
+        LOG_WARN("[CEF] LoadUrl: Browser ID {} has no main frame.", id);
+        return;
+    }
+
+    frame->LoadURL(url);
+
+    LOG_DEBUG("[CEF] Loading URL in browser ID {}: {}", id, url);
+}
 
 
 void BrowserManager::SetDevToolsEnabled(int browserId, bool enabled)
@@ -1061,7 +1087,10 @@ void BrowserManager::OnPaint(int id, const void* buffer, int width, int height, 
 bool BrowserManager::RenderAll()
 {
     std::lock_guard<std::recursive_mutex> lock(map_mutex_);
-    if (!draw_enabled_)
+
+    UpdateNativeUiInput();
+
+    if (ShouldSkipBrowserRendering())
         return false;
 
     UpdateAudioSpatialization();
@@ -1196,12 +1225,20 @@ bool BrowserManager::RenderAll()
 
 void BrowserManager::OnBeforeEntityRender(CEntity* entity)
 {
+    if (ShouldSkipBrowserRendering())
+        return;
+
     auto it = entityToBrowserId_.find(entity);
     if (it == entityToBrowserId_.end())
         return;
-    int browserId = it->second;
+    const int browserId = it->second;
+
+    auto* browser = GetBrowserInstance(browserId);
+    if (!browser || !browser->visible)
+        return;
+
     auto wrIt = worldRenderers_.find(browserId);
-    if (wrIt != worldRenderers_.end())
+    if (wrIt != worldRenderers_.end() && wrIt->second)
     {
         wrIt->second->SwapTexture(entity);
     }
@@ -1386,6 +1423,146 @@ void BrowserManager::ExitGame()
     ExitProcess(0);
 }
 
+void BrowserManager::SetEscapeMenuMode(EscapeMenuMode mode)
+{
+    const EscapeMenuMode previous = escape_menu_.SetMode(mode);
+    const EscapeMenuMode current = escape_menu_.GetMode();
+
+    DispatchNativeUiEvents();
+
+    if (previous != current)
+    {
+        LOG_INFO("[CEF] Escape menu mode changed: {} -> {}",
+            EscapeMenuController::GetModeName(previous),
+            EscapeMenuController::GetModeName(current));
+    }
+}
+
+bool BrowserManager::ShouldSkipBrowserRendering() const
+{
+    return !draw_enabled_ || escape_menu_.IsNativePauseMenuVisible();
+}
+
+bool BrowserManager::IsFocusedTextInputActive() const
+{
+    if (!focus_ || focusedBrowserId_ < 0)
+        return false;
+
+    const auto browser = browsers_.find(focusedBrowserId_);
+    return browser != browsers_.end()
+        && browser->second
+        && focus_->IsTextInputFocused(browser->second->id);
+}
+
+void BrowserManager::UpdateNativeUiInput()
+{
+    bool changed = false;
+
+    changed = escape_menu_.UpdateInput() || changed;
+
+    if (changed)
+        DispatchNativeUiEvents();
+}
+
+void BrowserManager::DispatchNativeUiEvents()
+{
+    if (escape_menu_.HasPendingCustomMenuVisibilityChange())
+        EmitCustomEscapeMenuVisibility();
+
+    if (player_list_.HasPendingCustomPlayerListVisibilityChange())
+        EmitCustomPlayerListVisibility();
+}
+
+void BrowserManager::EmitCustomEscapeMenuVisibility()
+{
+    if (!CefCurrentlyOn(TID_UI))
+    {
+        CefPostTask(TID_UI, base::BindOnce(&BrowserManager::EmitCustomEscapeMenuVisibility, base::Unretained(this)));
+        return;
+    }
+
+    const bool visible = escape_menu_.IsCustomMenuOpen();
+
+    for (const auto& [id, instance] : browsers_)
+    {
+        if (!instance || !instance->browser || !instance->browser->IsValid())
+            continue;
+
+        CefRefPtr<CefFrame> frame = instance->browser->GetMainFrame();
+        if (!frame || !frame->IsValid())
+            continue;
+
+        CefRefPtr<CefProcessMessage> msg = CefProcessMessage::Create("emit_event");
+        CefRefPtr<CefListValue> list = msg->GetArgumentList();
+        list->SetString(0, "cef:escape_menu");
+        list->SetBool(1, visible);
+
+        frame->SendProcessMessage(PID_RENDERER, msg);
+    }
+}
+
+void BrowserManager::EmitCustomPlayerListVisibility()
+{
+    if (!CefCurrentlyOn(TID_UI))
+    {
+        CefPostTask(TID_UI, base::BindOnce(&BrowserManager::EmitCustomPlayerListVisibility, base::Unretained(this)));
+        return;
+    }
+
+    const bool visible = player_list_.IsCustomPlayerListOpen();
+
+    for (const auto& [id, instance] : browsers_)
+    {
+        if (!instance || !instance->browser || !instance->browser->IsValid())
+            continue;
+
+        CefRefPtr<CefFrame> frame = instance->browser->GetMainFrame();
+        if (!frame || !frame->IsValid())
+            continue;
+
+        CefRefPtr<CefProcessMessage> msg = CefProcessMessage::Create("emit_event");
+        CefRefPtr<CefListValue> list = msg->GetArgumentList();
+        list->SetString(0, "cef:player_list");
+        list->SetBool(1, visible);
+
+        frame->SendProcessMessage(PID_RENDERER, msg);
+    }
+}
+
+void BrowserManager::SetPlayerListMode(PlayerListMode mode)
+{
+    const PlayerListMode previous = player_list_.SetMode(mode);
+    const PlayerListMode current = player_list_.GetMode();
+
+    DispatchNativeUiEvents();
+
+    if (previous != current)
+    {
+        LOG_INFO("[CEF] Player list mode changed: {} -> {}",
+            PlayerListController::GetModeName(previous),
+            PlayerListController::GetModeName(current));
+    }
+}
+
+
+bool BrowserManager::ShouldSuppressNativePlayerList() const
+{
+    return PlayerListController::ShouldSuppressNativePlayerList(player_list_.GetMode());
+}
+
+bool BrowserManager::HandleNativePlayerListOpenRequest()
+{
+    const bool should_suppress = ShouldSuppressNativePlayerList();
+    if (!should_suppress)
+        return false;
+
+    const bool changed = player_list_.HandleNativePlayerListOpenRequest(!IsFocusedTextInputActive());
+    if (changed)
+        DispatchNativeUiEvents();
+
+    return true;
+}
+
 void BrowserManager::OnDeviceLost()
 {
     // Stop CEF rendering during device reset
@@ -1441,6 +1618,19 @@ void BrowserManager::OnDeviceReset(IDirect3DDevice9* device)
 
 LRESULT BrowserManager::OnWndProcMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    bool native_ui_message_consumed = false;
+
+    native_ui_message_consumed = escape_menu_.ConsumeWndProcMessage(msg, wParam, lParam) || native_ui_message_consumed;
+
+    if (!IsFocusedTextInputActive())
+        native_ui_message_consumed = player_list_.ConsumeWndProcMessage(msg, wParam, lParam) || native_ui_message_consumed;
+
+    if (native_ui_message_consumed)
+    {
+        DispatchNativeUiEvents();
+        return true;
+    }
+
     if (msg == WM_KEYDOWN || msg == WM_KEYUP || msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP)
     {
         if (key_capture_enabled_ && network_.GetState() == ConnectionState::CONNECTED && !network_.IsNonCefServer())

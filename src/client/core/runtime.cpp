@@ -17,6 +17,7 @@
 #include "samp/samp_version_manager.hpp"
 #include "samp/hooks/netgame.hpp"
 #include "samp/hooks/chat.hpp"
+#include "samp/hooks/scoreboard.hpp"
 #include "system/config_manager.hpp"
 #include "system/gta.hpp"
 #include "system/logger.hpp"
@@ -208,6 +209,9 @@ bool Runtime::Start()
 	chat_hook_ = std::make_unique<ChatHook>(*hooks_, *focus_, *browser_, *network_);
 	chat_hook_->Initialize();
 
+	scoreboard_hook_ = std::make_unique<ScoreboardHook>(*hooks_, *browser_);
+	scoreboard_hook_->Initialize();
+
 	download_dialog_ = std::make_unique<DownloadDialog>(network_.get(), hud_.get(), samp_.get(), browser_.get());
 	resources_->SetDownloadDialog(*download_dialog_);
 
@@ -315,6 +319,12 @@ void Runtime::Stop()
 
 	if (download_dialog_)
 		download_dialog_.reset();
+
+	if (scoreboard_hook_)
+	{
+		scoreboard_hook_->Shutdown();
+		scoreboard_hook_.reset();
+	}
 
 	if (chat_hook_)
 	{

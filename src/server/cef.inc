@@ -100,6 +100,36 @@ enum E_HUD_COMPONENT
     HUD_COMPONENT_WEAPON
 };
 
+/**
+ * Defines how GTA San Andreas' native ESC/pause menu is handled by the client.
+ */
+enum E_CEF_ESCAPE_MENU_MODE
+{
+    // Default GTA behavior: ESC opens the native GTA pause menu.
+    CEF_ESCAPE_MENU_GTA = 0,
+
+    // ESC input is consumed and the native GTA pause menu is closed if it appears.
+    CEF_ESCAPE_MENU_DISABLED,
+
+    // ESC input is consumed and every browser receives cef:escape_menu(bool:visible).
+    CEF_ESCAPE_MENU_CUSTOM
+};
+
+/**
+ * Defines how SA-MP/open.mp's native TAB player list / scoreboard is handled by the client.
+ */
+enum E_CEF_PLAYER_LIST_MODE
+{
+    // Default behavior: TAB opens the native SA-MP/open.mp player list / scoreboard.
+    CEF_PLAYER_LIST_DEFAULT = 0,
+
+    // TAB input is consumed and the native player list is not opened.
+    CEF_PLAYER_LIST_DISABLED,
+
+    // TAB input is consumed and every browser receives cef:player_list(bool:visible).
+    CEF_PLAYER_LIST_CUSTOM
+};
+
  /**
  * Checks if a player has successfully completed the CEF "handshake".
  *
@@ -239,6 +269,15 @@ native CEF_ReloadBrowser(playerid, browserid, bool:ignore_cache = false);
 native CEF_FocusBrowser(playerid, id, bool:focused);
 
 /**
+ * Loads a new URL in an existing browser for a specific player.
+ *
+ * @param playerid      The ID of the player.
+ * @param browserid     The ID of the browser.
+ * @param url           The URL to load.
+ */
+native CEF_LoadUrl(playerid, browserid, const url[]);
+
+/**
  * Enables or disables Chromium DevTools for a specific browser of a player.
  *
  * @param playerid  The ID of the player.
@@ -358,7 +397,7 @@ native CEF_ClearChat(playerid);
  * When disabled, the player will not be able to open the chat input
  * (e.g. with the "T" or "F6" key).
  *
- * This function only affects the chat input box — it does not hide
+ * This function only affects the chat input box Â— it does not hide
  * the chat messages already displayed on screen.
  *
  * @param playerid      The ID of the player whose chat input state will be changed.
@@ -410,6 +449,28 @@ native CEF_SetKeyCapture(playerid, bool:enabled);
  * @param playerid  The ID of the player.
  */
 native CEF_ExitGame(playerid);
+
+/**
+ * Sets how GTA San Andreas' native ESC/pause menu should be handled.
+ *
+ * In CUSTOM mode, JavaScript can listen with:
+ *     cef.on("cef:escape_menu", (visible) => { ... });
+ *
+ * @param playerid  The ID of the player.
+ * @param mode      One of E_CEF_ESCAPE_MENU_MODE.
+ */
+native CEF_SetEscapeMenuMode(playerid, E_CEF_ESCAPE_MENU_MODE:mode);
+
+/**
+ * Sets how SA-MP/open.mp's native TAB player list / scoreboard should be handled.
+ *
+ * In CUSTOM mode, JavaScript can listen with:
+ *     cef.on("cef:player_list", (visible) => { ... });
+ *
+ * @param playerid  The ID of the player.
+ * @param mode      One of E_CEF_PLAYER_LIST_MODE.
+ */
+native CEF_SetPlayerListMode(playerid, E_CEF_PLAYER_LIST_MODE:mode);
 
 /**
  * CALLBACKS

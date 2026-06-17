@@ -369,7 +369,7 @@ void App::OnPacketReceived(const NetworkPacket &packet)
 
             QueueOrCreateWorld(id, url, textureName, width, height);
         }
-        else if (event.name == CefEvent::Server::CreateWorld2DBrowser && event.args.size() >= 6)
+        else if (event.name == CefEvent::Server::CreateWorld2DBrowser && event.args.size() >= 10)
         {
             int id = event.args[0].intValue;
             const std::string &url = event.args[1].stringValue;
@@ -421,6 +421,13 @@ void App::OnPacketReceived(const NetworkPacket &packet)
             bool toggle = event.args[1].boolValue;
 
             browser_.FocusBrowser(browserId, toggle);
+        }
+        else if (event.name == CefEvent::Server::LoadUrl && event.args.size() >= 2)
+        {
+            const int browserId = event.args[0].intValue;
+            const std::string& url = event.args[1].stringValue;
+
+            browser_.LoadUrl(browserId, url);
         }
         else if (event.name == CefEvent::Server::AttachBrowserToObject && event.args.size() >= 2)
         {
@@ -505,6 +512,18 @@ void App::OnPacketReceived(const NetworkPacket &packet)
         else if (event.name == CefEvent::Server::ExitGame)
         {
             browser_.ExitGame();
+        }
+        else if (event.name == CefEvent::Server::SetEscapeMenuMode && event.args.size() >= 1)
+        {
+            int mode = event.args[0].intValue;
+
+            browser_.SetEscapeMenuMode(static_cast<EscapeMenuMode>(mode));
+        }
+        else if (event.name == CefEvent::Server::SetPlayerListMode && event.args.size() >= 1)
+        {
+            int mode = event.args[0].intValue;
+
+            browser_.SetPlayerListMode(static_cast<PlayerListMode>(mode));
         }
         break;
     }

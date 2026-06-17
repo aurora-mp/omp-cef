@@ -29,6 +29,7 @@ public:
     void EmitEvent(int playerid, int browserid, const std::string& name, const std::vector<Argument>& args);
     void ReloadBrowser(int playerid, int browserid, bool ignoreCache);
     void FocusBrowser(int playerid, int id, bool focused);
+    void LoadUrl(int playerid, int browserid, const std::string& url);
     void EnableDevTools(int playerid, int browserid, bool enabled);
 
     void AttachBrowserToObject(int playerid, int browserid, int objectid);
@@ -49,6 +50,9 @@ public:
     void EnableKey(int playerid, int key, bool enabled);
 
     void ExitGame(int playerid);
+
+    void SetEscapeMenuMode(int playerid, int mode);
+    void SetPlayerListMode(int playerid, int mode);
 private:
     CefPlugin& plugin_;
 

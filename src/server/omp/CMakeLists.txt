@@ -1,10 +1,7 @@
 project(ServerOmp LANGUAGES CXX)
 
 # You can change this path for development
-#set(DLL_DEPLOY_DIR "${CMAKE_SOURCE_DIR}/tests/omp/components")
-#set(INC_DEPLOY_DIR "${CMAKE_SOURCE_DIR}/tests/omp/qawno/include")
-
-set(DLL_DEPLOY_DIR "E:/multiplayer/aurora-mp/rpg/env/components")
+set(DLL_DEPLOY_DIR "${CMAKE_SOURCE_DIR}/tests/omp/components")
 set(INC_DEPLOY_DIR "${CMAKE_SOURCE_DIR}/tests/omp/qawno/include")
 
 file(GLOB_RECURSE SERVER_OMP_FILES
@@ -57,13 +54,23 @@ if(NOT DEFINED ENV{CI})
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_SOURCE_DIR}/src/server/cef.inc"
             "${INC_DEPLOY_DIR}/cef.inc"
-        COMMENT "Deploying cef.inc to ${INC_DEPLOY_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${CMAKE_SOURCE_DIR}/deploy"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/src/server/cef.inc"
+            "${CMAKE_SOURCE_DIR}/deploy/cef.inc"
+        COMMENT "Deploying cef.inc to ${INC_DEPLOY_DIR} and /deploy"
     )
 
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:${PROJECT_NAME}>
             "${DLL_DEPLOY_DIR}/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
-        COMMENT "Deploying Cef.dll to ${DLL_DEPLOY_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${CMAKE_SOURCE_DIR}/deploy"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:${PROJECT_NAME}>"
+            "${CMAKE_SOURCE_DIR}/deploy/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
+        COMMENT "Deploying Cef.dll to ${DLL_DEPLOY_DIR} and /deploy"
     )
 endif()

@@ -29,6 +29,7 @@ class Samp;
 
 class NetGameHook;
 class ChatHook;
+class ScoreboardHook;
 
 class Runtime
 {
@@ -75,6 +76,7 @@ private:
 
 	std::unique_ptr<NetGameHook> netgame_hook_;
 	std::unique_ptr<ChatHook> chat_hook_;
+	std::unique_ptr<ScoreboardHook> scoreboard_hook_;
 
 	std::unique_ptr<App> app_;
 	

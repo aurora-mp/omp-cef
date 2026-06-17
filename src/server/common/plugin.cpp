@@ -192,6 +192,9 @@ void CefPlugin::OnPlayerDisconnect(int playerid)
 
 void CefPlugin::OnPacketReceived(const asio::ip::udp::endpoint& from, const char* data, int len)
 {
+    if (!data || len <= 0)
+        return;
+
     auto network_session = sessions_->GetSessionFromAddress(from);
     
     // Fallback: Roaming support. 
@@ -229,9 +232,55 @@ void CefPlugin::OnPacketReceived(const asio::ip::udp::endpoint& from, const char
 		return;
 	}
 
+    const auto packet_type = static_cast<PacketType>(static_cast<uint8_t>(data[0]));
+
+    // Before a transport is attached to an endpoint, the server must only accept
+    // the raw packets that are correct for the current handshake state.
+    if (!network_session)
+    {
+        const auto legacy_request_join_size = static_cast<int>(1 + sizeof(int));
+        const auto request_join_size = static_cast<int>(legacy_request_join_size + sizeof(uint32_t));
+
+        if (packet_type != PacketType::RequestJoin ||
+            (len != legacy_request_join_size && len != request_join_size))
+        {
+            return;
+        }
+    }
+    else if (network_session->handshake_status == HandshakeStatus::CHALLENGED)
+    {
+        if (packet_type != PacketType::HandshakeFinalize)
+            return;
+    }
+    else
+    {
+        return;
+    }
+
 	NetworkPacket packet;
     if (!DeserializePacket(data, len, packet))
         return;
+
+    if (!network_session && sessions_->IsEndpointRecentlyClosed(from))
+    {
+        bool allow_fresh_join_from_reused_endpoint = false;
+
+        if (packet.type == PacketType::RequestJoin)
+        {
+            const auto& join_packet = std::get<RequestJoinPacket>(packet.payload);
+            allow_fresh_join_from_reused_endpoint =
+                join_packet.playerid >= 0 &&
+                join_packet.client_version == PLUGIN_VERSION_U32 &&
+                sessions_->GetSession(join_packet.playerid) != nullptr;
+        }
+
+        if (!allow_fresh_join_from_reused_endpoint)
+        {
+            return;
+        }
+
+        sessions_->ClearClosedEndpoint(from);
+    }
 
 	switch (packet.type)
 	{
@@ -255,35 +304,36 @@ void CefPlugin::HandleRequestJoin(const asio::ip::udp::endpoint& from, const Req
     if (!bridge_ || !running_)
         return;
 
-    int playerid = join_packet.playerid;
+    const int playerid = join_packet.playerid;
+    const std::string from_ip = from.address().to_string();
+    const int from_port = static_cast<int>(from.port());
 
-    std::string from_ip = from.address().to_string();
-    std::string official_ip = bridge_->GetPlayerAddressIp(playerid);
-
-    if (playerid < 0 || bridge_->IsPlayerNpcBot(playerid))
+    if (playerid < 0)
     {
-        LOG_DEBUG("RequestJoin refused: pid=%d invalid/NPC (from %s:%d)", playerid, from_ip.c_str(), (int)from.port());
+        LOG_DEBUG("RequestJoin refused: invalid pid=%d (from %s:%d)", playerid, from_ip.c_str(), from_port);
         return;
     }
 
     auto session = sessions_->GetSession(playerid);
     if (!session)
     {
-        LOG_WARN("RequestJoin refused: no session for pid=%d (from %s:%d)", playerid, from_ip.c_str(), (int)from.port());
+        LOG_DEBUG("RequestJoin refused: no session for pid=%d (from %s:%d)", playerid, from_ip.c_str(), from_port);
         return;
     }
 
-    LOG_INFO("RequestJoin pid=%d from=%s:%d official=%s", playerid, from_ip.c_str(), (int)from.port(), official_ip.c_str());
+    if (bridge_->IsPlayerNpcBot(playerid))
+    {
+        LOG_DEBUG("RequestJoin refused: pid=%d is NPC (from %s:%d)", playerid, from_ip.c_str(), from_port);
+        return;
+    }
+
+    const std::string official_ip = bridge_->GetPlayerAddressIp(playerid);
+
+    LOG_INFO("RequestJoin pid=%d from=%s:%d official=%s", playerid, from_ip.c_str(), from_port, official_ip.c_str());
 
     if (!official_ip.empty() && official_ip != from_ip)
     {
         LOG_WARN("RequestJoin dropped: IP mismatch (pid=%d, official=%s, from=%s)", playerid, official_ip.c_str(), from_ip.c_str());
-        return;
-    }
-
-    if (session->handshake_status == HandshakeStatus::CONNECTED)
-    {
-        LOG_DEBUG("RequestJoin ignored: pid=%d already CONNECTED", playerid);
         return;
     }
 
@@ -307,15 +357,57 @@ void CefPlugin::HandleRequestJoin(const asio::ip::udp::endpoint& from, const Req
 
         SendRawPacketToEndpoint(from, PacketType::JoinResponse, reject);
 
-        session->handshake_status = HandshakeStatus::NONE;
-        session->handshake_complete = false;
-        
-        NotifyCefInitialize(session, false, CEF_INIT_VERSION_MISMATCH, reject.message);
+        if (session->handshake_status != HandshakeStatus::CONNECTED)
+        {
+            session->handshake_status = HandshakeStatus::NONE;
+            session->handshake_complete = false;
+            NotifyCefInitialize(session, false, CEF_INIT_VERSION_MISMATCH, reject.message);
+        }
+
         return;
     }
-    
+
+    if (session->handshake_status == HandshakeStatus::CONNECTED)
+    {
+        if (session->address == from)
+        {
+            LOG_DEBUG("RequestJoin ignored: pid=%d already CONNECTED on the same endpoint", playerid);
+            return;
+        }
+
+        LOG_INFO("RequestJoin rejoin: pid=%d endpoint changed from %s:%d to %s:%d -> resetting CEF transport",
+            playerid,
+            session->address.address().to_string().c_str(),
+            static_cast<int>(session->address.port()),
+            from_ip.c_str(),
+            from_port);
+
+        sessions_->ResetPlayerTransport(playerid);
+        session = sessions_->GetSession(playerid);
+        if (!session)
+            return;
+    }
+    else if (session->handshake_status == HandshakeStatus::CHALLENGED && session->address != from)
+    {
+        LOG_DEBUG("RequestJoin reattempt: pid=%d endpoint changed before finalize from %s:%d to %s:%d",
+            playerid,
+            session->address.address().to_string().c_str(),
+            static_cast<int>(session->address.port()),
+            from_ip.c_str(),
+            from_port);
+
+        sessions_->ResetPlayerTransport(playerid);
+        session = sessions_->GetSession(playerid);
+        if (!session)
+            return;
+    }
+
     session->address = from;
     session->handshake_status = HandshakeStatus::CHALLENGED;
+    session->handshake_complete = false;
+    session->cef_init_notified = false;
+    session->cef_success = false;
+    session->cef_init_timer_started = false;
     sessions_->MapAddressToPlayer(playerid, from);
 
     HandshakeChallengePacket response;

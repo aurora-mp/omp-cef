@@ -14,6 +14,7 @@ namespace CefEvent
         inline constexpr const char* DestroyBrowser = "DestroyBrowser";
         inline constexpr const char* ReloadBrowser = "ReloadBrowser";
         inline constexpr const char* FocusBrowser = "FocusBrowser";
+        inline constexpr const char* LoadUrl = "LoadUrl";
 
         inline constexpr const char* EnableDevTools = "EnableDevTools";
 
@@ -34,6 +35,9 @@ namespace CefEvent
         inline constexpr const char* EnableKey = "EnableKey";
 
         inline constexpr const char* ExitGame = "ExitGame";
+
+        inline constexpr const char* SetEscapeMenuMode = "SetEscapeMenuMode";
+        inline constexpr const char* SetPlayerListMode = "SetPlayerListMode";
     }
 
     namespace Client 

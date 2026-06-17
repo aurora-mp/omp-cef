@@ -57,6 +57,12 @@ struct NetworkSession
 	bool chat_input_open{false};
 
 	std::mutex kcp_mutex;
+
+	void Reset();
+
+private:
+	void ClearDownloadState();
+	void ReleaseKcp();
 };
 
 class NetworkSessionManager
@@ -70,6 +76,10 @@ public:
 	void SetSender(std::function<void(const asio::ip::udp::endpoint&, const char*, int)> fn);
 	void RegisterPlayer(int playerid);
 	void RemovePlayer(int playerid);
+	void ResetPlayerTransport(int playerid);
+
+	bool IsEndpointRecentlyClosed(const asio::ip::udp::endpoint& addr);
+	void ClearClosedEndpoint(const asio::ip::udp::endpoint& addr);
 
 	void UpdateAllKcpInstances(uint32_t now_ms);
 	std::shared_ptr<NetworkSession> GetOrCreateSession(int playerid);
@@ -81,6 +91,11 @@ public:
 	void SetDownloadPaused(int playerid, bool paused);
 
 private:
+	static constexpr std::chrono::milliseconds CLOSED_ENDPOINT_RETENTION{3000};
+
+	void TrackClosedEndpoint(const asio::ip::udp::endpoint& addr);
+	void RemoveExpiredClosedEndpoints();
+
 	void UnmapAddress(const asio::ip::udp::endpoint& addr);
 	std::string EndpointToStr(const asio::ip::udp::endpoint& addr) const;
 
@@ -89,4 +104,5 @@ private:
 	std::function<void(const asio::ip::udp::endpoint&, const char*, int)> send_fn_;
 	std::unordered_map<int, std::shared_ptr<NetworkSession>> player_sessions_;
 	std::unordered_map<std::string, int> addr_str_to_playerid_;
+	std::unordered_map<std::string, std::chrono::steady_clock::time_point> closed_endpoint_expirations_;
 };

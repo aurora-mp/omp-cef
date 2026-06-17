@@ -202,3 +202,11 @@ cmake --build build --config Release
 cmake --build build --config Release --target Client
 cmake --build build --config Release --target Loader
 cmake --build build --config Release --target Renderer
+
+
+
+# Para forzar la reconstrucción total de todo el proyecto (borrando caché y forzando post-builds):
+cmake --build build --config Release --clean-first
+
+# O para forzar la reconstrucción de un solo módulo:
+cmake --build build --config Release --target Client --clean-first

@@ -65,6 +65,11 @@ PAWN_NATIVE(Natives, CEF_FocusBrowser, void(int playerid, int id, bool focused))
      CefApi::Instance()->FocusBrowser(playerid, id, focused);
 }
 
+PAWN_NATIVE(Natives, CEF_LoadUrl, void(int playerid, int browserid, const std::string& url))
+{
+    CefApi::Instance()->LoadUrl(playerid, browserid, url);
+}
+
 PAWN_NATIVE(Natives, CEF_EnableDevTools, void(int playerid, int browserid, bool enabled))
 {
      CefApi::Instance()->EnableDevTools(playerid, browserid, enabled);
@@ -133,4 +138,14 @@ PAWN_NATIVE(Natives, CEF_EnableKey, void(int playerid, int key, bool enabled))
 PAWN_NATIVE(Natives, CEF_ExitGame, void(int playerid))
 {
     CefApi::Instance()->ExitGame(playerid);
+}
+
+PAWN_NATIVE(Natives, CEF_SetEscapeMenuMode, void(int playerid, int mode))
+{
+    CefApi::Instance()->SetEscapeMenuMode(playerid, mode);
+}
+
+PAWN_NATIVE(Natives, CEF_SetPlayerListMode, void(int playerid, int mode))
+{
+    CefApi::Instance()->SetPlayerListMode(playerid, mode);
 }

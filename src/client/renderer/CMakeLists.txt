@@ -34,6 +34,11 @@ if(NOT DEFINED ENV{CI})
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "$<TARGET_FILE:${PROJECT_NAME}>"
             "${FILE_DEPLOY_DIR}/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
-        COMMENT "Copying renderer.exe to ${FILE_DEPLOY_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${CMAKE_SOURCE_DIR}/deploy"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:${PROJECT_NAME}>"
+            "${CMAKE_SOURCE_DIR}/deploy/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
+        COMMENT "Copying renderer.exe to ${FILE_DEPLOY_DIR} and /deploy"
     )
 endif()
