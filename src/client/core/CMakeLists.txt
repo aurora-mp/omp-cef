@@ -4,8 +4,17 @@ project(Client LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# You can change this path for development if you want to avoid manually copying and pasting the file (renderer.exe)
-set(DLL_DEPLOY_DIR "D:/Program Files (x86)/Rockstar Games/GTA San Andreas - Samp Addons/nsy")
+set(CEF_GAME_DIR "" CACHE PATH "Optional GTA San Andreas directory for local post-build deployment.")
+set(CEF_CLIENT_DEPLOY_DIR "" CACHE PATH "Optional post-build deploy target for client.dll.")
+
+if("${CEF_GAME_DIR}" STREQUAL "" AND DEFINED ENV{CEF_GAME_DIR} AND NOT "$ENV{CEF_GAME_DIR}" STREQUAL "")
+    file(TO_CMAKE_PATH "$ENV{CEF_GAME_DIR}" CEF_GAME_DIR_FROM_ENV)
+    set(CEF_GAME_DIR "${CEF_GAME_DIR_FROM_ENV}" CACHE PATH "Optional GTA San Andreas directory for local post-build deployment." FORCE)
+endif()
+
+if("${CEF_CLIENT_DEPLOY_DIR}" STREQUAL "" AND NOT "${CEF_GAME_DIR}" STREQUAL "")
+    set(CEF_CLIENT_DEPLOY_DIR "${CEF_GAME_DIR}/nsy")
+endif()
 
 # Deps
 #find_package(asio CONFIG REQUIRED)
@@ -75,7 +84,6 @@ target_link_libraries(${PROJECT_NAME}
         libcef_lib
         libcef_dll_wrapper
 
-        #asio::asio
         fmt::fmt
         nlohmann_json::nlohmann_json
         miniz::miniz
@@ -99,16 +107,22 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     OUTPUT_NAME "client"
 )
 
-if(NOT DEFINED ENV{CI})
+if(NOT DEFINED ENV{CI} AND CEF_CLIENT_DEPLOY_DIR)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${CEF_CLIENT_DEPLOY_DIR}"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "$<TARGET_FILE:${PROJECT_NAME}>"
-            "${DLL_DEPLOY_DIR}/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${CEF_CLIENT_DEPLOY_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:${PROJECT_NAME}>"
+            "${CEF_CLIENT_DEPLOY_DIR}/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
         COMMAND ${CMAKE_COMMAND} -E make_directory
             "${CMAKE_SOURCE_DIR}/deploy"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "$<TARGET_FILE:${PROJECT_NAME}>"
             "${CMAKE_SOURCE_DIR}/deploy/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
-        COMMENT "Copying client.dll to ${DLL_DEPLOY_DIR} and /deploy"
+        COMMENT "Deploying client.dll to ${CEF_CLIENT_DEPLOY_DIR} and /deploy"
     )
 endif()
