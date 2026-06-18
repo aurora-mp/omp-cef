@@ -6,9 +6,13 @@
 #include "session.hpp"
 #include "shared/packet-serializer.hpp"
 #include "shared/packet.hpp"
-#include "shared/utils.hpp"
 #include "shared/events.hpp"
 #include "shared/version.hpp"
+
+namespace
+{
+    constexpr uint16_t DefaultListenPort = 7779;
+}
 
 CefPlugin::CefPlugin()
 {
@@ -25,7 +29,8 @@ void CefPlugin::Initialize(std::unique_ptr<IPlatformBridge> bridge, uint16_t lis
 
 	bridge_ = std::move(bridge);
 	master_resource_key_ = options.master_resource_key;
-    resources_loader_ui_ = options.resources_loader_ui;
+	resource_download_dialogs_.SetMode(options.resources_loader_mode);
+	resource_download_dialogs_.SetDialogId(options.resources_loader_dialog_id);
 
 	logger_.SetBridge(bridge_.get());
 	logger_.SetLevel(options.log_level);
@@ -33,7 +38,7 @@ void CefPlugin::Initialize(std::unique_ptr<IPlatformBridge> bridge, uint16_t lis
 
 	security_->Initialize(io_context_);
 
-    const uint16_t port = (listen_port != 0 ? listen_port : static_cast<uint16_t>(7779));
+    const uint16_t port = (listen_port != 0 ? listen_port : DefaultListenPort);
 
 	try
 	{
@@ -124,6 +129,7 @@ void CefPlugin::OnPlayerConnect(int playerid)
     }
 
     sessions_->RegisterPlayer(playerid);
+    player_ui_states_[playerid] = PlayerUiState{};
     LOG_DEBUG("OnPlayerConnect: player %d registered", playerid);
 }
 
@@ -186,8 +192,23 @@ void CefPlugin::OnPlayerDisconnect(int playerid)
     if (bridge_->IsPlayerNpcBot(playerid))
         return;
 
+    resource_download_dialogs_.AbortDownload(*bridge_, playerid);
+    player_ui_states_.erase(playerid);
     sessions_->RemovePlayer(playerid);
     LOG_DEBUG("OnPlayerDisconnect: player %d removed", playerid);
+}
+
+bool CefPlugin::OnDialogResponse(int playerid, int dialogid)
+{
+    if (!bridge_)
+        return false;
+
+    return resource_download_dialogs_.HandleDialogResponse(*bridge_, playerid, dialogid);
+}
+
+void CefPlugin::SetSpawnScreenState(int playerid, bool visible)
+{
+    player_ui_states_[playerid].spawnScreenVisible = visible;
 }
 
 void CefPlugin::OnPacketReceived(const asio::ip::udp::endpoint& from, const char* data, int len)
@@ -489,7 +510,7 @@ void CefPlugin::HandleHandshakeFinalize(const asio::ip::udp::endpoint& from,
 
 	ServerConfigPacket config_packet;
 	config_packet.master_resource_key = master_resource_key_;
-    config_packet.resources_loader_ui = resources_loader_ui_;
+    config_packet.resources_loader_ui = resource_download_dialogs_.UsesClientLoader();
 	SendPacketToPlayer(session->playerid, PacketType::ServerConfig, config_packet);
 
 	session->handshake_complete = true;
@@ -568,6 +589,9 @@ void CefPlugin::HandleFileRequest(int playerid, const RequestFilesPacket& reques
 	if (!session)
 		return;
 
+	std::vector<std::pair<std::string, size_t>> queuedFiles;
+	queuedFiles.reserve(request.files.size());
+
 	for (const auto& [resourceName, relativePath] : request.files) {
 		if (resource_->IsFileValid(resourceName, relativePath)) {
 
@@ -590,9 +614,21 @@ void CefPlugin::HandleFileRequest(int playerid, const RequestFilesPacket& reques
 			transfer->totalChunks = (transfer->content.size() + FILE_CHUNK_SIZE - 1) / FILE_CHUNK_SIZE;
 			transfer->currentChunkIndex = 0;
 
+			queuedFiles.emplace_back(transfer->relativePath, transfer->content.size());
 			session->download_queue.push(transfer);
 		}
 	}
+
+	LOG_DEBUG(
+		"Resource download request from player %d: requested=%zu queued=%zu",
+		playerid,
+		request.files.size(),
+		queuedFiles.size());
+
+	if (queuedFiles.empty() && !request.files.empty())
+		LOG_WARN("Resource download request from player %d did not match any registered resource file.", playerid);
+
+	resource_download_dialogs_.SetPlan(*bridge_, playerid, queuedFiles);
 }
 
 void CefPlugin::ProcessFileTransfers()
@@ -616,6 +652,13 @@ void CefPlugin::ProcessFileTransfers()
             session->download_queue.pop();
 
             LOG_DEBUG("Starting transfer for player %d - file '%s'", session->playerid, session->current_transfer->relativePath.c_str());
+
+            resource_download_dialogs_.UpdateFileProgress(
+                *bridge_,
+                session->playerid,
+                session->current_transfer->relativePath,
+                0,
+                session->current_transfer->content.size());
         }
 
         auto& transfer = session->current_transfer;
@@ -634,6 +677,7 @@ void CefPlugin::ProcessFileTransfers()
             {
                 LOG_DEBUG("Completed transfer for player %d - file '%s'", session->playerid, transfer->relativePath.c_str());
 
+                resource_download_dialogs_.CompleteCurrentFile(*bridge_, session->playerid, transfer->relativePath);
                 session->current_transfer = nullptr;
                 break;
             }
@@ -669,6 +713,13 @@ void CefPlugin::ProcessFileTransfers()
 
             ++transfer->currentChunkIndex;
             ++sent_this_tick;
+
+            resource_download_dialogs_.UpdateFileProgress(
+                *bridge_,
+                session->playerid,
+                transfer->relativePath,
+                std::min(static_cast<size_t>(transfer->currentChunkIndex) * FILE_CHUNK_SIZE, transfer->content.size()),
+                transfer->content.size());
         }
     }
 }
@@ -762,6 +813,27 @@ void CefPlugin::NotifyCefReady(std::shared_ptr<NetworkSession> session)
     }
 }
 
+void CefPlugin::BeginDownloadUi(int playerid)
+{
+    if (!api_ || !resource_download_dialogs_.UsesServerDialog())
+        return;
+
+    api_->ToggleSpawnScreen(playerid, false, false);
+}
+
+void CefPlugin::EndDownloadUi(int playerid)
+{
+    if (!api_ || !sessions_ || !resource_download_dialogs_.UsesServerDialog())
+        return;
+
+    if (!sessions_->GetSession(playerid))
+        return;
+
+    const auto it = player_ui_states_.find(playerid);
+    const bool visible = it == player_ui_states_.end() || it->second.spawnScreenVisible;
+    api_->ToggleSpawnScreen(playerid, visible, false);
+}
+
 void CefPlugin::HandleClientEvent(int playerid, const ClientEmitEventPacket& payload)
 {
 	if (payload.name == CefEvent::Client::BrowserCreateResult)
@@ -786,6 +858,9 @@ void CefPlugin::HandleClientEvent(int playerid, const ClientEmitEventPacket& pay
 
     if (payload.name == CefEvent::Client::DownloadStart)
 	{
+        BeginDownloadUi(playerid);
+        resource_download_dialogs_.StartDownload(*bridge_, playerid);
+
         std::lock_guard<std::mutex> lock(callback_mutex_);
         callback_queue_.push([this, playerid]() {
             if (bridge_) {
@@ -797,6 +872,9 @@ void CefPlugin::HandleClientEvent(int playerid, const ClientEmitEventPacket& pay
 
     if (payload.name == CefEvent::Client::DownloadFinish)
 	{
+        resource_download_dialogs_.FinishDownload(*bridge_, playerid);
+        EndDownloadUi(playerid);
+
         std::lock_guard<std::mutex> lock(callback_mutex_);
         callback_queue_.push([this, playerid]() {
             if (bridge_) {

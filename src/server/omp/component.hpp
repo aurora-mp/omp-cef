@@ -47,7 +47,8 @@ private:
 
     bool debug_enabled_ = false;
     std::vector<uint8_t> master_resource_key_;
-    bool resources_loader_ui_ = true;
+    ResourceLoaderUiMode resource_loader_ui_mode_ = ResourceLoaderUiMode::Cef;
+    int resource_download_dialog_id_ = ResourceDownloadDialogManager::DefaultDialogId;
 
     uint16_t server_port_ = 7777;
     uint16_t cef_network_port_ = 7779;

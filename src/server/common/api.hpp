@@ -40,7 +40,7 @@ public:
     void SetBrowserAudioSettings(int playerid, int browserid, float maxDistance, float referenceDistance);
 
     void ToggleHudComponent(int playerid, int componentid, bool toggle);
-    void ToggleSpawnScreen(int playerid, bool toggle);
+    void ToggleSpawnScreen(int playerid, bool toggle, bool trackState = true);
 
     void ClearChat(int playerid);
     void ToggleChatInput(int playerid, bool toggle);

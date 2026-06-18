@@ -397,7 +397,7 @@ native CEF_ClearChat(playerid);
  * When disabled, the player will not be able to open the chat input
  * (e.g. with the "T" or "F6" key).
  *
- * This function only affects the chat input box  it does not hide
+ * This function only affects the chat input box — it does not hide
  * the chat messages already displayed on screen.
  *
  * @param playerid      The ID of the player whose chat input state will be changed.
@@ -496,6 +496,32 @@ forward OnCefInitialize(playerid, bool:success, E_CEF_INIT_REASON:reason, const 
  * @param playerid      The ID of the player.
  */
 forward OnCefDownloadStart(playerid);
+
+/**
+ * Called when resource download progress is updated.
+ *
+ * This callback is emitted by the server while it sends resource chunks to the
+ * client. The final completion signal remains OnCefDownloadFinish, which is
+ * emitted after the client reports that the download has completed.
+ *
+ * @param playerid          The ID of the player.
+ * @param fileName          The current resource file name.
+ * @param filePercent       Progress for the current file, from 0 to 100.
+ * @param totalPercent      Overall resource download progress, from 0 to 100.
+ * @param fileDownloadedKb  Downloaded size for the current file, in KB.
+ * @param fileTotalKb       Total size for the current file, in KB.
+ * @param totalDownloadedKb Downloaded size for all queued resource files, in KB.
+ * @param totalKb           Total size for all queued resource files, in KB.
+ */
+forward OnCefDownloadProgress(
+    playerid,
+    const fileName[],
+    filePercent,
+    totalPercent,
+    fileDownloadedKb,
+    fileTotalKb,
+    totalDownloadedKb,
+    totalKb);
 
 /*
  * Called when player finish downloading resources.

@@ -254,9 +254,12 @@ void CefApi::ToggleHudComponent(int playerid, int componentid, bool toggle)
 	plugin_.SendPacketToPlayer(playerid, PacketType::EmitEvent, event);
 }
 
-void CefApi::ToggleSpawnScreen(int playerid, bool toggle)
+void CefApi::ToggleSpawnScreen(int playerid, bool toggle, bool trackState)
 {
 	LOG_DEBUG("ToggleSpawnScreen: playerid=%d, toggle=%d", playerid, toggle);
+
+	if (trackState)
+		plugin_.SetSpawnScreenState(playerid, toggle);
 
 	EmitEventPacket event;
 	event.name = CefEvent::Server::ToggleSpawnScreen;

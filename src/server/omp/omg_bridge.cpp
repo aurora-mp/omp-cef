@@ -128,6 +128,42 @@ void OmpPlatformBridge::CallOnDownloadStart(int playerid)
     }
 }
 
+void OmpPlatformBridge::CallOnDownloadProgress(
+    int playerid,
+    const std::string& fileName,
+    int filePercent,
+    int totalPercent,
+    int fileDownloadedKb,
+    int fileTotalKb,
+    int totalDownloadedKb,
+    int totalKb)
+{
+    if (!pawn_)
+        return;
+
+    auto call = [&](IPawnScript* script) {
+        if (!script)
+            return;
+
+        script->Call(
+            "OnCefDownloadProgress",
+            DefaultReturnValue_True,
+            playerid,
+            StringView(fileName),
+            filePercent,
+            totalPercent,
+            fileDownloadedKb,
+            fileTotalKb,
+            totalDownloadedKb,
+            totalKb);
+    };
+
+    call(pawn_->mainScript());
+    for (IPawnScript* script : pawn_->sideScripts()) {
+        call(script);
+    }
+}
+
 void OmpPlatformBridge::CallOnDownloadFinish(int playerid)
 {
     if (!pawn_) 
@@ -162,6 +198,51 @@ void OmpPlatformBridge::CallOnPressKey(int playerid, int key, int scancode, int 
     for (IPawnScript* script : pawn_->sideScripts()) {
         call(script);
     }
+}
+
+void OmpPlatformBridge::ShowResourceDownloadDialog(
+    int playerid,
+    int dialogid,
+    const std::string& title,
+    const std::string& body,
+    const std::string& button1,
+    const std::string& button2)
+{
+    if (!core_)
+        return;
+
+    IPlayer* player = core_->getPlayers().get(playerid);
+    if (!player)
+        return;
+
+    auto* dialog = queryExtension<IPlayerDialogData>(*player);
+    if (!dialog)
+        return;
+
+    dialog->show(
+        *player,
+        dialogid,
+        DialogStyle_TABLIST_HEADERS,
+        StringView(title),
+        StringView(body),
+        StringView(button1),
+        StringView(button2));
+}
+
+void OmpPlatformBridge::HideResourceDownloadDialog(int playerid)
+{
+    if (!core_)
+        return;
+
+    IPlayer* player = core_->getPlayers().get(playerid);
+    if (!player)
+        return;
+
+    auto* dialog = queryExtension<IPlayerDialogData>(*player);
+    if (!dialog)
+        return;
+
+    dialog->hide(*player);
 }
 
 std::string OmpPlatformBridge::GetPlayerAddressIp(int playerid)

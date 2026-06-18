@@ -6,6 +6,42 @@
 
 #include <shared/version.hpp>
 
+#include <string>
+
+namespace
+{
+    ResourceLoaderUiMode ReadResourceLoaderMode(IEarlyConfig& config, ILogger& logger)
+    {
+        if (config.getType("cef.resources_loader_mode") == ConfigOptionType_String)
+        {
+            const StringView mode = config.getString("cef.resources_loader_mode");
+            const std::string value(mode.data(), mode.length());
+
+            if (value == "cef")
+                return ResourceLoaderUiMode::Cef;
+
+            if (value == "samp_dialog")
+                return ResourceLoaderUiMode::SampDialog;
+
+            if (value == "none")
+                return ResourceLoaderUiMode::None;
+
+            logger.printLn(
+                "[CEF] Invalid cef.resources_loader_mode '%.*s'. Expected 'cef', 'samp_dialog' or 'none'. Defaulting to 'cef'.",
+                static_cast<int>(mode.length()),
+                mode.data());
+
+            return ResourceLoaderUiMode::Cef;
+        }
+
+        const bool legacy_ui_enabled = config.getBool("cef.resources_loader_ui")
+            ? *config.getBool("cef.resources_loader_ui")
+            : true;
+
+        return legacy_ui_enabled ? ResourceLoaderUiMode::Cef : ResourceLoaderUiMode::None;
+    }
+}
+
 StringView CefOmpComponent::componentName() const
 {
     return "Cef Component";
@@ -39,7 +75,8 @@ void CefOmpComponent::onInit(IComponentList* components)
     CefPluginOptions options;
     options.log_level = debug_enabled_ ? CefLogLevel::Debug : CefLogLevel::Info;
     options.master_resource_key = master_resource_key_;
-    options.resources_loader_ui = resources_loader_ui_;
+    options.resources_loader_mode = resource_loader_ui_mode_;
+    options.resources_loader_dialog_id = resource_download_dialog_id_;
 
     auto bridge = CreateOmpPlatformBridge(core_, pawn_);
     plugin_->Initialize(std::move(bridge), cef_network_port_, options);
@@ -68,7 +105,8 @@ void CefOmpComponent::provideConfiguration(ILogger& logger, IEarlyConfig& config
 	if (defaults) {
 		config.setBool("cef.debug", false);
 		config.setString("cef.master_resource_key", "ThisIsA16ByteKey");
-        config.setBool("cef.resources_loader_ui", true);
+        config.setString("cef.resources_loader_mode", "cef");
+        config.setInt("cef.resources_loader_dialog_id", ResourceDownloadDialogManager::DefaultDialogId);
 	}
 	else {
 		if (config.getType("cef.debug") == ConfigOptionType_None) {
@@ -79,9 +117,14 @@ void CefOmpComponent::provideConfiguration(ILogger& logger, IEarlyConfig& config
 			config.setString("cef.master_resource_key", "ThisIsA16ByteKey");
 		}
 
-        if (config.getType("cef.resources_loader_ui") == ConfigOptionType_None) {
-			config.setBool("cef.resources_loader_ui", true);
-		}
+        if (config.getType("cef.resources_loader_mode") == ConfigOptionType_None &&
+            config.getType("cef.resources_loader_ui") == ConfigOptionType_None) {
+            config.setString("cef.resources_loader_mode", "cef");
+        }
+
+        if (config.getType("cef.resources_loader_dialog_id") == ConfigOptionType_None) {
+            config.setInt("cef.resources_loader_dialog_id", ResourceDownloadDialogManager::DefaultDialogId);
+        }
 	}
 
 	debug_enabled_ = config.getBool("cef.debug") ? *config.getBool("cef.debug") : false;
@@ -101,7 +144,10 @@ void CefOmpComponent::provideConfiguration(ILogger& logger, IEarlyConfig& config
 		logger.printLn("===================================================================");
 	}
 
-    resources_loader_ui_ = config.getBool("cef.resources_loader_ui") ? *config.getBool("cef.resources_loader_ui") : true;
+    resource_loader_ui_mode_ = ReadResourceLoaderMode(config, logger);
+
+    int* dialog_id = config.getInt("cef.resources_loader_dialog_id");
+    resource_download_dialog_id_ = dialog_id ? *dialog_id : ResourceDownloadDialogManager::DefaultDialogId;
 }
 
 void CefOmpComponent::free()

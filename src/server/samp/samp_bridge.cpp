@@ -134,6 +134,40 @@ void SampPlatformBridge::CallOnDownloadStart(int playerid)
     }
 }
 
+void SampPlatformBridge::CallOnDownloadProgress(
+    int playerid,
+    const std::string& fileName,
+    int filePercent,
+    int totalPercent,
+    int fileDownloadedKb,
+    int fileTotalKb,
+    int totalDownloadedKb,
+    int totalKb)
+{
+    for (AMX* amx : g_AmxList)
+    {
+        int idx;
+        if (amx_FindPublic(amx, "OnCefDownloadProgress", &idx) != AMX_ERR_NONE)
+            continue;
+
+        cell file_name_addr = 0;
+        std::string ansi_file_name = Utf8ToAnsi(fileName);
+
+        amx_Push(amx, totalKb);
+        amx_Push(amx, totalDownloadedKb);
+        amx_Push(amx, fileTotalKb);
+        amx_Push(amx, fileDownloadedKb);
+        amx_Push(amx, totalPercent);
+        amx_Push(amx, filePercent);
+        amx_PushString(amx, &file_name_addr, NULL, ansi_file_name.c_str(), 0, 0);
+        amx_Push(amx, playerid);
+
+        cell retval;
+        amx_Exec(amx, &retval, idx);
+        amx_Release(amx, file_name_addr);
+    }
+}
+
 void SampPlatformBridge::CallOnDownloadFinish(int playerid)
 {
     for (AMX* amx : g_AmxList)
@@ -171,6 +205,38 @@ void SampPlatformBridge::CallOnPressKey(int playerid, int key, int scancode, int
         amx_Exec(amx, &retval, idx);
         amx->stk = stk_before;
     }
+}
+
+void SampPlatformBridge::ShowResourceDownloadDialog(
+    int playerid,
+    int dialogid,
+    const std::string& title,
+    const std::string& body,
+    const std::string& button1,
+    const std::string& button2)
+{
+    static constexpr int DialogStyleTablistHeaders = 5;
+
+    const std::string ansi_title = Utf8ToAnsi(title);
+    const std::string ansi_body = Utf8ToAnsi(body);
+    const std::string ansi_button1 = Utf8ToAnsi(button1);
+    const std::string ansi_button2 = Utf8ToAnsi(button2);
+
+    sampgdk_ShowPlayerDialog(
+        playerid,
+        dialogid,
+        DialogStyleTablistHeaders,
+        ansi_title.c_str(),
+        ansi_body.c_str(),
+        ansi_button1.c_str(),
+        ansi_button2.c_str());
+}
+
+void SampPlatformBridge::HideResourceDownloadDialog(int playerid)
+{
+    static constexpr int DialogStyleMsgBox = 0;
+
+    sampgdk_ShowPlayerDialog(playerid, -1, DialogStyleMsgBox, " ", " ", " ", " ");
 }
 
 std::string SampPlatformBridge::GetPlayerAddressIp(int playerid)
