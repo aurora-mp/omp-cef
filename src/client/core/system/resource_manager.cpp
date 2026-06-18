@@ -337,29 +337,19 @@ bool ResourceManager::LoadPakIntoVFS(const std::string& resourceName, const std:
 			continue;
 		}
 
-		std::vector<uint8_t> encrypted_data(static_cast<uint8_t*>(p), static_cast<uint8_t*>(p) + uncomp_size);
+		std::vector<uint8_t> entry_data(static_cast<uint8_t*>(p), static_cast<uint8_t*>(p) + uncomp_size);
 		mz_free(p);
 
-		if (encrypted_data.size() < 16)
+		std::vector<uint8_t> decoded;
+		if (!DecodeResourceEntry(entry_data, master_key_, decoded))
 		{
-			LOG_WARN("[ResourceManager] File '{}' too small to contain IV", file_stat.m_filename);
+			LOG_WARN("[ResourceManager] Failed to decode file '{}'", file_stat.m_filename);
 			continue;
 		}
 
-		std::array<uint8_t, 16> iv{};
-		std::copy_n(encrypted_data.begin(), 16, iv.begin());
-
-		std::vector<uint8_t> ciphertext(encrypted_data.begin() + 16, encrypted_data.end());
-
-		std::vector<uint8_t> decrypted = DecryptFile(ciphertext, master_key_, iv);
-		if (decrypted.empty())
-		{
-			LOG_WARN("[ResourceManager] Failed to decrypt file '{}'", file_stat.m_filename);
-			continue;
-		}
-
-		vfs[file_stat.m_filename] = std::move(decrypted);
-		LOG_DEBUG("[ResourceManager] Decrypted file: {} ({} bytes)", file_stat.m_filename, decrypted.size());
+		const auto decoded_size = decoded.size();
+		vfs[file_stat.m_filename] = std::move(decoded);
+		LOG_DEBUG("[ResourceManager] Loaded file: {} ({} bytes)", file_stat.m_filename, decoded_size);
 	}
 
 	mz_zip_reader_end(&zip);

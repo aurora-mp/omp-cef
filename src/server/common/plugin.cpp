@@ -576,10 +576,16 @@ void CefPlugin::HandleFileRequest(int playerid, const RequestFilesPacket& reques
 				continue;
 			}
 
+			FileInfo pakInfo;
+			if (!resource_->GetPakInfo(resourceName, pakInfo)) {
+				LOG_WARN("[CEF] Could not resolve pak metadata for resource '%s'.", resourceName.c_str());
+				continue;
+			}
+
 			auto transfer = std::make_shared<FileTransfer>();
 			transfer->resourceName = resourceName;
 			transfer->relativePath = relativePath;
-			transfer->fileHash = CalculateSHA256FromData(content);
+			transfer->fileHash = pakInfo.fileHash;
 			transfer->content = std::move(content);
 			transfer->totalChunks = (transfer->content.size() + FILE_CHUNK_SIZE - 1) / FILE_CHUNK_SIZE;
 			transfer->currentChunkIndex = 0;

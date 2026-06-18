@@ -32,6 +32,7 @@ public:
     void AddResource(const std::string& resourceName, const std::vector<uint8_t>& master_key);
 
     bool GetPakContent(const std::string& resourceName, std::vector<uint8_t>& outContent) const;
+    bool GetPakInfo(const std::string& resourceName, FileInfo& outPakInfo) const;
     nlohmann::json GetManifestAsJson();
     bool IsFileValid(const std::string& resourceName, const std::string& relativePath) const;
 
