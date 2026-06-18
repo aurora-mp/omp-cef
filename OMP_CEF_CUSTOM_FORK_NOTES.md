@@ -27,6 +27,8 @@ Se extrajeron e implementaron manualmente las siguientes características para m
 - Soporte para **Menú de Escape Personalizado** (`CEF_SetEscapeMenuMode`).
 - Soporte para **Scoreboard Personalizado** (`CEF_SetPlayerListMode`).
 - Capacidad de recargar y navegar URLs dinámicamente (`CEF_LoadUrl`).
+- Soporte de **Resource Loader en modo UI** (usando Dialog SA-MP o CEF). *Se conservó la concurrencia segura del fork en las callbacks `DownloadStart` y `DownloadFinish`*.
+- **Rutas de despliegue configurables** (CMake) y preset de depuración para **OMP x64**.
 
 ---
 **Instrucción Final:** Si se solicita actualizar este repositorio con novedades de `aurora-mp`, inspecciona los commits del *upstream* y aplica las características (features) individualmente usando el sistema de parcheo manual. **No uses herramientas de auto-fusión (merge).**

@@ -18,10 +18,10 @@
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
-      "generator": "Visual Studio 17 2022",
+      "generator": "Visual Studio 18",
       "architecture": "Win32",
       "environment": {
-        "VCPKG_VISUAL_STUDIO_PATH": "C:/Program Files/Microsoft Visual Studio/2022/Community"
+        "VCPKG_VISUAL_STUDIO_PATH": "C:/Program Files/Microsoft Visual Studio/18/Insiders"
       }
     },
     {
@@ -33,10 +33,10 @@
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
-      "generator": "Visual Studio 17 2022",
+      "generator": "Visual Studio 18",
       "architecture": "x64",
       "environment": {
-        "VCPKG_VISUAL_STUDIO_PATH": "C:/Program Files/Microsoft Visual Studio/2022/Community"
+        "VCPKG_VISUAL_STUDIO_PATH": "C:/Program Files/Microsoft Visual Studio/18/Insiders"
       }
     },
     {

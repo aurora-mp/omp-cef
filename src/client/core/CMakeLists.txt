@@ -107,22 +107,19 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     OUTPUT_NAME "client"
 )
 
-if(NOT DEFINED ENV{CI} AND CEF_CLIENT_DEPLOY_DIR)
+if(NOT DEFINED ENV{CI})
+    set(POST_BUILD_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/deploy"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_SOURCE_DIR}/deploy/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
+    )
+    if(CEF_CLIENT_DEPLOY_DIR)
+        list(APPEND POST_BUILD_COMMANDS
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${CEF_CLIENT_DEPLOY_DIR}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:${PROJECT_NAME}>" "${CEF_CLIENT_DEPLOY_DIR}/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
+        )
+    endif()
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-            "${CEF_CLIENT_DEPLOY_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:${PROJECT_NAME}>"
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-            "${CEF_CLIENT_DEPLOY_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:${PROJECT_NAME}>"
-            "${CEF_CLIENT_DEPLOY_DIR}/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-            "${CMAKE_SOURCE_DIR}/deploy"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:${PROJECT_NAME}>"
-            "${CMAKE_SOURCE_DIR}/deploy/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
-        COMMENT "Deploying client.dll to ${CEF_CLIENT_DEPLOY_DIR} and /deploy"
+        ${POST_BUILD_COMMANDS}
+        COMMENT "Deploying client.dll"
     )
 endif()

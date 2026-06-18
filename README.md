@@ -210,3 +210,17 @@ cmake --build build --config Release --clean-first
 
 # O para forzar la reconstrucción de un solo módulo:
 cmake --build build --config Release --target Client --clean-first
+
+# Para compilar el servidor SA-MP:
+cmake --build --preset="Server Samp x86 (Debug)"
+
+# Para compilar todo el Cliente (Loader, Renderer, Client):
+cmake --build --preset="Client x86 (Debug)"
+
+
+$env:VCPKG_ROOT="c:\Users\evo_l\Downloads\NSYCef\vcpkg"
+cmake --build build --config Release --clean-first
+
+
+$env:VCPKG_ROOT="c:\Users\evo_l\Downloads\NSYCef\vcpkg"
+cmake --build build --config Release --clean-first
