@@ -115,7 +115,7 @@ void CefApi::RegisterEvent(const std::string& name, const std::string& callback,
 
 void CefApi::EmitEvent(int playerid, int browserid, const std::string& name, const std::vector<Argument>& args)
 {
-	// LOG_DEBUG("[CEF] EmitEvent: playerid=%d, browserid=%d, name=%.*s, args=%zu", playerid, browserid, static_cast<int>(name.size()), name.data(), args.size());
+	LOG_DEBUG("[CEF] EmitEvent: playerid=%d, browserid=%d, name=%.*s, args=%zu", playerid, browserid, static_cast<int>(name.size()), name.data(), args.size());
 
 	EmitEventPacket event;
 

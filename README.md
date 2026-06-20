@@ -196,31 +196,17 @@ PRs welcome.
 - Some *tests* (sample gamemode, resources ... etc)
 - Wiki to explain natives/callbacks
 
-cmake -S . -B build -A Win32 -DCMAKE_TOOLCHAIN_FILE="C:/Users/evo_l/Downloads/NSYCef/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x86-windows-static -DVCPKG_MANIFEST_FEATURES="client;server" -DBUILD_CLIENT=ON -DBUILD_SERVER_OMP=ON
-
-cmake --build build --config Release
-cmake --build build --config Release --target Client
-cmake --build build --config Release --target Loader
-cmake --build build --config Release --target Renderer
 
 
 
-# Para forzar la reconstrucción total de todo el proyecto (borrando caché y forzando post-builds):
-cmake --build build --config Release --clean-first
+# Para compilar el servidor open.mp en modo Release (SIN LOGS DE DEBUG, PARA PRODUCCIÓN):
+$env:VCPKG_ROOT="c:\Users\evo_l\Downloads\NSYCef\vcpkg"; cmake --preset="omp-win-x86-release"; cmake --build --preset="OMP x86 (Release)" --clean-first
 
-# O para forzar la reconstrucción de un solo módulo:
-cmake --build build --config Release --target Client --clean-first
+# Para compilar el servidor open.mp en modo Debug (CON LOGS PARA PRUEBAS):
+$env:VCPKG_ROOT="c:\Users\evo_l\Downloads\NSYCef\vcpkg"; cmake --preset="omp-win-x86-debug"; cmake --build --preset="OMP x86 (Debug)"
 
-# Para compilar el servidor SA-MP:
-cmake --build --preset="Server Samp x86 (Debug)"
+# Para compilar todo el Cliente de GTA SA (Loader .asi, Renderer, Client) en modo Release (PARA JUGADORES):
+$env:VCPKG_ROOT="c:\Users\evo_l\Downloads\NSYCef\vcpkg"; cmake --preset="client-win-x86-release"; cmake --build --preset="Client x86 (Release)" --clean-first
 
-# Para compilar todo el Cliente (Loader, Renderer, Client):
-cmake --build --preset="Client x86 (Debug)"
-
-
-$env:VCPKG_ROOT="c:\Users\evo_l\Downloads\NSYCef\vcpkg"
-cmake --build build --config Release --clean-first
-
-
-$env:VCPKG_ROOT="c:\Users\evo_l\Downloads\NSYCef\vcpkg"
-cmake --build build --config Release --clean-first
+# Para compilar todo el Cliente de GTA SA en modo Debug (CON LOGS PARA PRUEBAS):
+$env:VCPKG_ROOT="c:\Users\evo_l\Downloads\NSYCef\vcpkg"; cmake --preset="client-win-x86-debug"; cmake --build --preset="Client x86 (Debug)"
