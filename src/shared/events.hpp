@@ -38,6 +38,7 @@ namespace CefEvent
 
         inline constexpr const char* SetEscapeMenuMode = "SetEscapeMenuMode";
         inline constexpr const char* SetPlayerListMode = "SetPlayerListMode";
+        inline constexpr const char* SetPlayerLabelData = "SetPlayerLabelData";
     }
 
     namespace Client 

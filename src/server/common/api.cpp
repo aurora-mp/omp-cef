@@ -115,7 +115,7 @@ void CefApi::RegisterEvent(const std::string& name, const std::string& callback,
 
 void CefApi::EmitEvent(int playerid, int browserid, const std::string& name, const std::vector<Argument>& args)
 {
-	LOG_DEBUG("[CEF] EmitEvent: playerid=%d, browserid=%d, name=%.*s, args=%zu", playerid, browserid, static_cast<int>(name.size()), name.data(), args.size());
+	// LOG_DEBUG("[CEF] EmitEvent: playerid=%d, browserid=%d, name=%.*s, args=%zu", playerid, browserid, static_cast<int>(name.size()), name.data(), args.size());
 
 	EmitEventPacket event;
 
@@ -357,6 +357,18 @@ void CefApi::SetPlayerListMode(int playerid, int mode)
     EmitEventPacket event;
     event.name = CefEvent::Server::SetPlayerListMode;
     event.args.emplace_back(mode);
+
+    plugin_.SendPacketToPlayer(playerid, PacketType::EmitEvent, event);
+}
+
+void CefApi::SetPlayerLabelData(int playerid, int targetid, const std::string& dataJSON)
+{
+    LOG_DEBUG("SetPlayerLabelData: playerid=%d, targetid=%d, dataJSON=%.*s", playerid, targetid, static_cast<int>(dataJSON.size()), dataJSON.data());
+
+    EmitEventPacket event;
+    event.name = CefEvent::Server::SetPlayerLabelData;
+    event.args.emplace_back(targetid);
+    event.args.emplace_back(dataJSON);
 
     plugin_.SendPacketToPlayer(playerid, PacketType::EmitEvent, event);
 }

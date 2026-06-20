@@ -1,5 +1,11 @@
 #include "app.hpp"
 
+#include <format>
+#include <fstream>
+#include <chrono>
+
+#include <nlohmann/json.hpp>
+#include <game_sa/CSprite.h>
 #include <windows.h>
 #include <algorithm>
 
@@ -293,6 +299,80 @@ void App::Tick()
         if (auto* chat = GetComponent<ChatComponent>())
             chat->Clear();
     }
+
+    // Process player 3D labels
+    if (!player_labels_.empty())
+    {
+        nlohmann::json jsonArray = nlohmann::json::array();
+        
+        if (netGame)
+        {
+            auto* playerPool = netGame->GetPlayerPool();
+            if (playerPool)
+            {
+                for (auto it = player_labels_.begin(); it != player_labels_.end(); ++it)
+                {
+                    int targetId = it->first;
+                    
+                    if (!playerPool->IsPlayerStreamedIn(targetId))
+                        continue;
+
+                    float x, y, z;
+                    if (playerPool->GetPlayerPos(targetId, x, y, z))
+                    {
+                        float lx, ly, lz;
+                        if (playerPool->GetPlayerPos(netGame->GetLocalPlayerId(), lx, ly, lz))
+                        {
+                            float dist = std::sqrt((lx - x) * (lx - x) + (ly - y) * (ly - y) + (lz - z) * (lz - z));
+                            
+                            if (dist > it->second.drawDistance) // Draw distance limit from JSON
+                                continue;
+                        }
+
+                        z += 1.15f; // Overhead offset
+                        
+                        RwV3d worldPos = { x, y, z };
+                        RwV3d screenPos;
+                        float w, h;
+                        
+                        bool visible = CSprite::CalcScreenCoors(worldPos, &screenPos, &w, &h, true, true);
+                        
+                        if (visible && screenPos.z > 0.0f)
+                        {
+                            nlohmann::json labelData;
+                            labelData["targetId"] = targetId;
+                            labelData["x"] = screenPos.x;
+                            labelData["y"] = screenPos.y;
+                            labelData["distance"] = screenPos.z;
+                            
+                            try {
+                                labelData["data"] = nlohmann::json::parse(it->second.dataJSON);
+                            } catch (...) {
+                                labelData["data"] = it->second.dataJSON;
+                            }
+
+                            jsonArray.push_back(labelData);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!jsonArray.empty())
+        {
+            std::string payload = jsonArray.dump();
+            std::vector<Argument> args;
+            args.push_back(payload);
+            
+            for (const auto& kv : browser_.GetAllBrowsers())
+            {
+                if (kv.second && kv.second->visible)
+                {
+                    SendEmitToBrowser(browser_, kv.first, "PlayerLabelsUpdate", args);
+                }
+            }
+        }
+    }
 }
 
 void App::RemovePendingCreate(int id)
@@ -524,6 +604,25 @@ void App::OnPacketReceived(const NetworkPacket& packet)
             else if (event.name == CefEvent::Server::ClearChat)
             {
                 pending_clear_chat_ = true;
+            }
+            else if (event.name == CefEvent::Server::SetPlayerLabelData && event.args.size() >= 2)
+            {
+                int targetId = event.args[0].intValue;
+                const std::string& dataJSON = event.args[1].stringValue;
+
+                if (dataJSON.empty()) {
+                    player_labels_.erase(targetId);
+                } else {
+                    player_labels_[targetId].dataJSON = dataJSON;
+                    player_labels_[targetId].drawDistance = 30.0f; // Default
+
+                    try {
+                        auto j = nlohmann::json::parse(dataJSON);
+                        if (j.contains("distance") && j["distance"].is_number()) {
+                            player_labels_[targetId].drawDistance = j["distance"].get<float>();
+                        }
+                    } catch (...) {}
+                }
             }
             else if (event.name == CefEvent::Server::ToggleChatInput && event.args.size() >= 1)
             {

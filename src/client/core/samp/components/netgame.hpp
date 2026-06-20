@@ -19,6 +19,7 @@ public:
 
     IObjectPool* GetObjectPool();
     IVehiclePool* GetVehiclePool();
+    IPlayerPool* GetPlayerPool();
 
     CEntity* GetEntityFromObjectId(int objectId);
 

@@ -584,3 +584,12 @@ forward OnCefChatInputState(playerid, bool:open);
  * @param network_id    The network ID of the entity.
  */
 // TODO: forward OnCefEntityClicked(playerid, entity_type, network_id);
+
+/**
+ * Update the metadata for a 3D player label on the CEF client side.
+ *
+ * @param playerid      The ID of the player to send the data to.
+ * @param targetid      The ID of the player the label is attached to.
+ * @param dataJSON      The JSON string containing the label metadata (e.g. {"text": "...", "distance": 20.0}).
+ */
+native CEF_SetPlayerLabelData(playerid, targetid, const dataJSON[]);

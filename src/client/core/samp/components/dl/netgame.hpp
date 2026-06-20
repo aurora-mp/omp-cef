@@ -24,11 +24,27 @@ public:
 
     IObjectPool* GetObjectPool() override;
     IVehiclePool* GetVehiclePool() override;
+    IPlayerPool* GetPlayerPool() override;
 
     CEntity* GetEntityFromObjectId(int objectId) override;
 
 private:
     sampapi::v03dl::CNetGame* GetNetGame() const;
+
+private:
+    class PlayerPoolImpl : public IPlayerPool
+    {
+    public:
+        PlayerPoolImpl(NetGameView_DL* view) : view_(view) {}
+
+        bool GetPlayerPos(int playerId, float& x, float& y, float& z) override;
+        bool GetPlayerName(int playerId, std::string& name) override;
+        bool IsPlayerStreamedIn(int playerId) override;
+    private:
+        NetGameView_DL* view_;
+    };
+
+    PlayerPoolImpl playerPool_{this};
 
     ObjectPool_DL object_pool_wrapper_;
     VehiclePool_DL vehicle_pool_wrapper_;
