@@ -92,6 +92,12 @@ private:
     bool flushed_once_ = false;
     std::vector<PendingCreate> pending_creates_;
     std::vector<PendingEmit> pending_emits_;
+    
+    struct PlayerLabel {
+        std::string dataJSON;
+        float drawDistance = 30.0f;
+    };
+    std::unordered_map<int, PlayerLabel> player_labels_;
 
     bool pending_clear_chat_ = false;
 };

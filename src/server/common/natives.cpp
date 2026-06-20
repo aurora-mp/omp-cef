@@ -149,3 +149,8 @@ PAWN_NATIVE(Natives, CEF_SetPlayerListMode, void(int playerid, int mode))
 {
     CefApi::Instance()->SetPlayerListMode(playerid, mode);
 }
+
+PAWN_NATIVE(Natives, CEF_SetPlayerLabelData, void(int playerid, int targetid, const std::string& dataJSON))
+{
+    CefApi::Instance()->SetPlayerLabelData(playerid, targetid, dataJSON);
+}

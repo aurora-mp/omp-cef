@@ -53,6 +53,8 @@ public:
 
     void SetEscapeMenuMode(int playerid, int mode);
     void SetPlayerListMode(int playerid, int mode);
+
+    void SetPlayerLabelData(int playerid, int targetid, const std::string& dataJSON);
 private:
     CefPlugin& plugin_;
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "samp/pools/game_pool.hpp"
 
@@ -31,6 +31,7 @@ public:
 
 	virtual IObjectPool* GetObjectPool() = 0;
     virtual IVehiclePool* GetVehiclePool() = 0;
+    virtual IPlayerPool* GetPlayerPool() = 0;
 
 	virtual CEntity* GetEntityFromObjectId(int objectId) = 0;
 };

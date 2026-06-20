@@ -360,3 +360,15 @@ void CefApi::SetPlayerListMode(int playerid, int mode)
 
     plugin_.SendPacketToPlayer(playerid, PacketType::EmitEvent, event);
 }
+
+void CefApi::SetPlayerLabelData(int playerid, int targetid, const std::string& dataJSON)
+{
+    LOG_DEBUG("SetPlayerLabelData: playerid=%d, targetid=%d, dataJSON=%.*s", playerid, targetid, static_cast<int>(dataJSON.size()), dataJSON.data());
+
+    EmitEventPacket event;
+    event.name = CefEvent::Server::SetPlayerLabelData;
+    event.args.emplace_back(targetid);
+    event.args.emplace_back(dataJSON);
+
+    plugin_.SendPacketToPlayer(playerid, PacketType::EmitEvent, event);
+}

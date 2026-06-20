@@ -103,3 +103,11 @@ CEntity* NetGameComponent::GetEntityFromObjectId(int objectId)
 
 	return view_->GetEntityFromObjectId(objectId);
 }
+
+IPlayerPool* NetGameComponent::GetPlayerPool()
+{
+	if (!view_)
+		return nullptr;
+
+	return view_->GetPlayerPool();
+}
