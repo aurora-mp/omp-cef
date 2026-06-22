@@ -6,6 +6,7 @@
 
 #include <nlohmann/json.hpp>
 #include <game_sa/CSprite.h>
+#include <game_sa/RenderWare.h>
 #include <windows.h>
 #include <algorithm>
 
@@ -300,6 +301,8 @@ void App::Tick()
                             labelData["x"] = screenPos.x;
                             labelData["y"] = screenPos.y;
                             labelData["distance"] = screenPos.z;
+                            labelData["gameWidth"] = RsGlobal.maximumWidth;
+                            labelData["gameHeight"] = RsGlobal.maximumHeight;
                             
                             try {
                                 labelData["data"] = nlohmann::json::parse(it->second.dataJSON);
