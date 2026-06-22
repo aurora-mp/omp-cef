@@ -257,10 +257,10 @@ void App::Tick()
     }
 
     // Process player 3D labels
+    nlohmann::json jsonArray = nlohmann::json::array();
+    
     if (!player_labels_.empty())
     {
-        nlohmann::json jsonArray = nlohmann::json::array();
-        
         if (netGame)
         {
             auto* playerPool = netGame->GetPlayerPool();
@@ -313,21 +313,23 @@ void App::Tick()
                 }
             }
         }
+    }
 
-        if (!jsonArray.empty())
+    bool has_labels_to_draw = !jsonArray.empty();
+    if (has_labels_to_draw || sent_labels_last_tick_)
+    {
+        std::string payload = jsonArray.dump();
+        std::vector<Argument> args;
+        args.push_back(payload);
+        
+        for (const auto& kv : browser_.GetAllBrowsers())
         {
-            std::string payload = jsonArray.dump();
-            std::vector<Argument> args;
-            args.push_back(payload);
-            
-            for (const auto& kv : browser_.GetAllBrowsers())
+            if (kv.second && kv.second->visible)
             {
-                if (kv.second && kv.second->visible)
-                {
-                    SendEmitToBrowser(browser_, kv.first, "PlayerLabelsUpdate", args);
-                }
+                SendEmitToBrowser(browser_, kv.first, "PlayerLabelsUpdate", args);
             }
         }
+        sent_labels_last_tick_ = has_labels_to_draw;
     }
 }
 

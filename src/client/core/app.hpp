@@ -98,6 +98,7 @@ private:
         float drawDistance = 30.0f;
     };
     std::unordered_map<int, PlayerLabel> player_labels_;
+    bool sent_labels_last_tick_ = false;
 
     bool pending_clear_chat_ = false;
 };
