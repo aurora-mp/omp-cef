@@ -12,11 +12,17 @@ class FocusManager;
 class ResourceManager;
 class HudManager;
 
-class App {
+class App
+{
 public:
     struct PendingCreate
     {
-        enum class Kind { Overlay, World, World2D };
+        enum class Kind
+        {
+            Overlay,
+            World,
+            World2D
+        };
         Kind kind = Kind::Overlay;
         int id = -1;
         std::string url;
@@ -44,64 +50,62 @@ public:
     };
 
 public:
-    App(NetworkManager& network,
-        BrowserManager& browser,
-        AudioManager& audio,
-        FocusManager& focus,
-        ResourceManager& resources,
-        HudManager& hud) noexcept
+    App(NetworkManager &network,
+        BrowserManager &browser,
+        AudioManager &audio,
+        FocusManager &focus,
+        ResourceManager &resources,
+        HudManager &hud) noexcept
         : network_(network), browser_(browser), audio_(audio), focus_(focus), resources_(resources), hud_(hud) {}
 
     ~App() = default;
 
-    App(const App&) = delete;
-    App& operator=(const App&) = delete;
+    App(const App &) = delete;
+    App &operator=(const App &) = delete;
 
     void Initialize();
     void Shutdown();
     void Tick();
-    void OnPacketReceived(const NetworkPacket& packet);
+    void OnPacketReceived(const NetworkPacket &packet);
 
 private:
     void ResetSession();
 
     bool ResourcesReady() const;
     void FlushPendingIfReady();
-    
+
     void RemovePendingCreate(int id);
-    void QueueOrCreateOverlay(int id, const std::string& url, bool focused, bool controls_chat, float width, float height);
-    void QueueOrCreateWorld(int id, const std::string& url, const std::string& textureName, float width, float height);
-    void QueueOrCreateWorld2D(int id, const std::string& url, float worldX, float worldY, float worldZ, float width, float height, float offsetZ, float pivotX, float pivotY);
+    void QueueOrCreateOverlay(int id, const std::string &url, bool focused, bool controls_chat, float width, float height);
+    void QueueOrCreateWorld(int id, const std::string &url, const std::string &textureName, float width, float height);
+    void QueueOrCreateWorld2D(int id, const std::string &url, float worldX, float worldY, float worldZ, float width, float height, float offsetZ, float pivotX, float pivotY);
 
 private:
     static constexpr int cef_port_offset_ = 2;
 
 private:
-    NetworkManager& network_;
-    BrowserManager& browser_;
-    AudioManager& audio_;
-    FocusManager& focus_;
-    ResourceManager& resources_;
-    HudManager& hud_;
+    NetworkManager &network_;
+    BrowserManager &browser_;
+    AudioManager &audio_;
+    FocusManager &focus_;
+    ResourceManager &resources_;
+    HudManager &hud_;
 
     bool net_endpoint_ready_ = false;
     std::string net_host_;
     unsigned short net_port_ = 0;
     unsigned long long next_connect_attempt_ms_ = 0;
 
-    int connected_player_id_ = -1;
-    std::string connected_game_host_;
-    int connected_game_port_ = 0;
-
     bool flushed_once_ = false;
     std::vector<PendingCreate> pending_creates_;
     std::vector<PendingEmit> pending_emits_;
-    
-    struct PlayerLabel {
+
+    struct PlayerLabel
+    {
         std::string dataJSON;
         float drawDistance = 30.0f;
     };
     std::unordered_map<int, PlayerLabel> player_labels_;
+    bool sent_labels_last_tick_ = false;
 
     bool pending_clear_chat_ = false;
 };
