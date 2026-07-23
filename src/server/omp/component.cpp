@@ -56,6 +56,7 @@ SemanticVersion CefOmpComponent::componentVersion() const
 void CefOmpComponent::onLoad(ICore* core)
 {
     core_ = core;
+	core_->getEventDispatcher().addEventHandler(this);
     core_->getPlayers().getPlayerConnectDispatcher().addEventHandler(this);
     setAmxLookups(core_);
 }
@@ -90,6 +91,10 @@ void CefOmpComponent::onFree(IComponent* component)
 {
     if (component == pawn_)
     {
+		if (plugin_)
+		{
+			plugin_->InvalidatePawnBridge();
+		}
         pawn_ = nullptr;
     }
 }
@@ -176,6 +181,17 @@ void CefOmpComponent::onAmxUnload(IPawnScript& script)
 
 }
 
+void CefOmpComponent::onTick(Microseconds elapsed, TimePoint now)
+{
+    (void)elapsed;
+    (void)now;
+
+    if (plugin_)
+    {
+        plugin_->ProcessMainThreadTasks();
+    }
+}
+
 void CefOmpComponent::onPlayerConnect(IPlayer& player)
 {
     plugin_->OnPlayerConnect(player.getID());
@@ -200,6 +216,7 @@ CefOmpComponent::~CefOmpComponent()
 
     if (core_)
     {
+		core_->getEventDispatcher().removeEventHandler(this);
         core_->getPlayers().getPlayerConnectDispatcher().removeEventHandler(this);
     }
 }

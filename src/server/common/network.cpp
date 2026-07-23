@@ -52,15 +52,23 @@ void NetworkServer::SendTo(const asio::ip::udp::endpoint& addr, const char* data
         return;
 
     auto send_buffer = std::make_shared<std::vector<char>>(data, data + length);
-    socket_.async_send_to(asio::buffer(*send_buffer),
-        addr,
-        [send_buffer](std::error_code ec, std::size_t)
-        {
-            if (ec && ec != asio::error::operation_aborted)
-            {
-                LOG_ERROR("[Network] Async send error: %s", ec.message().c_str());
-            }
-        });
+	// Pawn natives may flush KCP from the open.mp thread. Keep every operation
+	// on the shared UDP socket serialized by its single ASIO io_context thread.
+	asio::dispatch(io_context_, [this, addr, send_buffer]()
+	{
+		if (!running_)
+			return;
+
+		socket_.async_send_to(asio::buffer(*send_buffer),
+			addr,
+			[send_buffer](std::error_code ec, std::size_t)
+			{
+				if (ec && ec != asio::error::operation_aborted)
+				{
+					LOG_ERROR("[Network] Async send error: %s", ec.message().c_str());
+				}
+			});
+	});
 }
 
 void NetworkServer::DoReceive()

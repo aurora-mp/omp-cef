@@ -154,6 +154,22 @@ void BrowserClient::OnPaint(CefRefPtr<CefBrowser> /*browser*/,
     manager_.OnPaint(browserId_, buffer, width, height, dirty_rects.data(), dirty_rects.size());
 }
 
+bool BrowserClient::StartDragging(CefRefPtr<CefBrowser> browser,
+                                  CefRefPtr<CefDragData> drag_data,
+                                  DragOperationsMask allowed_ops,
+                                  int x,
+                                  int y)
+{
+    CEF_REQUIRE_UI_THREAD();
+    return manager_.StartDragging(browserId_, browser, drag_data, allowed_ops, x, y);
+}
+
+void BrowserClient::UpdateDragCursor(CefRefPtr<CefBrowser> /*browser*/, DragOperation operation)
+{
+    CEF_REQUIRE_UI_THREAD();
+    manager_.UpdateDragCursor(browserId_, operation);
+}
+
 bool BrowserClient::OnProcessMessageReceived(CefRefPtr<CefBrowser> /*browser*/,
                                              CefRefPtr<CefFrame> /*frame*/,
                                              CefProcessId /*source_process*/,

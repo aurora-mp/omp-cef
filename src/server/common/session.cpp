@@ -18,9 +18,8 @@ void NetworkSession::ClearDownloadState()
 	is_download_paused.store(false);
 }
 
-void NetworkSession::ReleaseKcp()
+void NetworkSession::ReleaseKcpUnlocked()
 {
-	std::lock_guard<std::mutex> kcp_lock(kcp_mutex);
 	if (kcp_instance)
 	{
 		ikcp_release(kcp_instance);
@@ -28,16 +27,24 @@ void NetworkSession::ReleaseKcp()
 	}
 }
 
+NetworkSession::~NetworkSession()
+{
+	std::lock_guard<std::mutex> kcp_lock(kcp_mutex);
+	ReleaseKcpUnlocked();
+}
+
 void NetworkSession::Reset()
 {
-	ReleaseKcp();
+	std::lock_guard<std::mutex> kcp_lock(kcp_mutex);
+	ReleaseKcpUnlocked();
 
 	address = asio::ip::udp::endpoint{};
 	handshake_status = HandshakeStatus::NONE;
 	handshake_complete.store(false);
 	cef_init_timer_started.store(false);
-	cef_init_notified = false;
-	cef_success = false;
+	epoch.fetch_add(1);
+	cef_init_state.store(CefInitState::Pending);
+	cef_ready_notified.store(false);
 	rx_key.clear();
 	tx_key.clear();
 	chat_input_open = false;
@@ -56,7 +63,15 @@ void NetworkSessionManager::TrackClosedEndpoint(const asio::ip::udp::endpoint& a
 	if (addr.address().is_unspecified() || addr.port() == 0)
 		return;
 
-	closed_endpoint_expirations_[EndpointToStr(addr)] = std::chrono::steady_clock::now() + CLOSED_ENDPOINT_RETENTION;
+	TrackClosedEndpoint(EndpointToStr(addr));
+}
+
+void NetworkSessionManager::TrackClosedEndpoint(const std::string& endpointKey)
+{
+	if (endpointKey.empty())
+		return;
+
+	closed_endpoint_expirations_[endpointKey] = std::chrono::steady_clock::now() + CLOSED_ENDPOINT_RETENTION;
 }
 
 void NetworkSessionManager::RemoveExpiredClosedEndpoints()
@@ -72,69 +87,68 @@ void NetworkSessionManager::RemoveExpiredClosedEndpoints()
 	}
 }
 
-void NetworkSessionManager::RegisterPlayer(int playerid)
+void NetworkSessionManager::RegisterPlayer(int playerid, std::string officialIp)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
-
-	std::shared_ptr<NetworkSession> session;
-
-	auto it = player_sessions_.find(playerid);
-	if (it == player_sessions_.end())
 	{
-		session = std::make_shared<NetworkSession>();
-		player_sessions_[playerid] = session;
-	}
-	else
-	{
-		session = it->second;
-		if (session->handshake_status != HandshakeStatus::NONE)
-			UnmapAddress(session->address);
-	}
+		std::lock_guard<std::mutex> lock(mutex_);
 
-	session->playerid = playerid;
-	session->send_fn = send_fn_;
-	session->Reset();
+		RemoveExpiredClosedEndpoints();
+		UnmapPlayer(playerid, true);
+
+		auto session = std::make_shared<NetworkSession>();
+		session->playerid = playerid;
+		session->official_ip = std::move(officialIp);
+		session->send_fn = send_fn_;
+		player_sessions_[playerid] = std::move(session);
+	}
 }
 
 void NetworkSessionManager::RemovePlayer(int playerid)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
-
-	RemoveExpiredClosedEndpoints();
-
-	auto it = player_sessions_.find(playerid);
-	if (it != player_sessions_.end())
 	{
-		TrackClosedEndpoint(it->second->address);
+		std::shared_ptr<NetworkSession> removedSession;
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
 
-		if (it->second->handshake_status != HandshakeStatus::NONE)
-			UnmapAddress(it->second->address);
+			RemoveExpiredClosedEndpoints();
+			UnmapPlayer(playerid, true);
 
-		it->second->Reset();
-		player_sessions_.erase(it);
+			auto it = player_sessions_.find(playerid);
+			if (it != player_sessions_.end())
+			{
+				removedSession = std::move(it->second);
+				player_sessions_.erase(it);
+			}
+		}
+
+		// Do not reset a session from the server thread. Any in-flight ASIO
+		// handler owns a shared_ptr and will release it on the network thread;
+		// otherwise destruction here is safe because nobody can be using it.
+		removedSession.reset();
 	}
 }
 
-void NetworkSessionManager::ResetPlayerTransport(int playerid)
+bool NetworkSessionManager::ResetPlayerTransport(int playerid, const std::shared_ptr<NetworkSession>& expectedSession)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	std::shared_ptr<NetworkSession> session;
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
 
-	RemoveExpiredClosedEndpoints();
+		RemoveExpiredClosedEndpoints();
 
-	auto it = player_sessions_.find(playerid);
-	if (it == player_sessions_.end() || !it->second)
-		return;
+		auto it = player_sessions_.find(playerid);
+		if (it == player_sessions_.end() || !it->second || it->second != expectedSession)
+			return false;
 
-	auto& session = *it->second;
+		UnmapPlayer(playerid, true);
+		session = it->second;
+	}
 
-	TrackClosedEndpoint(session.address);
-
-	if (session.handshake_status != HandshakeStatus::NONE)
-		UnmapAddress(session.address);
-
-	session.Reset();
-	session.playerid = playerid;
-	session.send_fn = send_fn_;
+	// This method is called by the single ASIO thread. Reset locks KCP against
+	// sends issued by Pawn on the main thread, while transfer state remains
+	// exclusively owned by ASIO.
+	session->Reset();
+	return true;
 }
 
 bool NetworkSessionManager::IsEndpointRecentlyClosed(const asio::ip::udp::endpoint& addr)
@@ -153,18 +167,7 @@ void NetworkSessionManager::ClearClosedEndpoint(const asio::ip::udp::endpoint& a
 
 void NetworkSessionManager::UpdateAllKcpInstances(uint32_t now_ms)
 {
-	std::vector<std::shared_ptr<NetworkSession>> sessions;
-
-	{
-		std::lock_guard<std::mutex> lock(mutex_);
-		sessions.reserve(player_sessions_.size());
-
-		for (auto& [playerid, session] : player_sessions_)
-		{
-			if (session && session->kcp_instance && session->handshake_status == HandshakeStatus::CONNECTED)
-				sessions.push_back(session);
-		}
-	}
+	auto sessions = GetAllSessions();
 
 	for (auto& session : sessions)
 	{
@@ -186,7 +189,6 @@ std::shared_ptr<NetworkSession> NetworkSessionManager::GetOrCreateSession(int pl
 
 		session->playerid = playerid;
 		session->send_fn = send_fn_;
-		session->Reset();
 
 		player_sessions_[playerid] = session;
 
@@ -256,14 +258,18 @@ bool NetworkSessionManager::HasPlayerPlugin(int playerid) const
 	return false;
 }
 
-void NetworkSessionManager::MapAddressToPlayer(int playerid, const asio::ip::udp::endpoint& addr)
+bool NetworkSessionManager::MapAddressToPlayer(int playerid, const std::shared_ptr<NetworkSession>& expectedSession, const asio::ip::udp::endpoint& addr)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
+	auto it = player_sessions_.find(playerid);
+	if (it == player_sessions_.end() || !it->second || it->second != expectedSession)
+		return false;
 
 	RemoveExpiredClosedEndpoints();
 	closed_endpoint_expirations_.erase(EndpointToStr(addr));
 
 	addr_str_to_playerid_[EndpointToStr(addr)] = playerid;
+	return true;
 }
 
 void NetworkSessionManager::SetDownloadPaused(int playerid, bool paused)
@@ -279,6 +285,23 @@ void NetworkSessionManager::SetDownloadPaused(int playerid, bool paused)
 void NetworkSessionManager::UnmapAddress(const asio::ip::udp::endpoint& addr)
 {
 	addr_str_to_playerid_.erase(EndpointToStr(addr));
+}
+
+void NetworkSessionManager::UnmapPlayer(int playerid, bool trackAsClosed)
+{
+	for (auto it = addr_str_to_playerid_.begin(); it != addr_str_to_playerid_.end();)
+	{
+		if (it->second != playerid)
+		{
+			++it;
+			continue;
+		}
+
+		if (trackAsClosed)
+			TrackClosedEndpoint(it->first);
+
+		it = addr_str_to_playerid_.erase(it);
+	}
 }
 
 std::string NetworkSessionManager::EndpointToStr(const asio::ip::udp::endpoint& addr) const

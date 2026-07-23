@@ -44,6 +44,12 @@ public:
         const RectList& dirtyRects,
         const void* buffer,
         int width, int height) override;
+    bool StartDragging(CefRefPtr<CefBrowser> browser,
+        CefRefPtr<CefDragData> drag_data,
+        DragOperationsMask allowed_ops,
+        int x,
+        int y) override;
+    void UpdateDragCursor(CefRefPtr<CefBrowser> browser, DragOperation operation) override;
 
     // CefDisplayHandler overrides
     bool OnCursorChange(CefRefPtr<CefBrowser> browser,

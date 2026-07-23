@@ -1,6 +1,7 @@
 #include "manager.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 
 #include <game_sa/CPlayerPed.h>
@@ -53,6 +54,21 @@ static uint32_t GetCefEventFlags()
         flags |= EVENTFLAG_CAPS_LOCK_ON;
     if (GetKeyState(VK_NUMLOCK) & 1)
         flags |= EVENTFLAG_NUM_LOCK_ON;
+    return flags;
+}
+
+static uint32_t GetCefMouseEventFlags(WPARAM wParam)
+{
+    uint32_t flags = GetCefEventFlags();
+    flags &= ~(EVENTFLAG_LEFT_MOUSE_BUTTON | EVENTFLAG_RIGHT_MOUSE_BUTTON | EVENTFLAG_MIDDLE_MOUSE_BUTTON);
+
+    const WORD keyState = GET_KEYSTATE_WPARAM(wParam);
+    if ((keyState & MK_LBUTTON) != 0)
+        flags |= EVENTFLAG_LEFT_MOUSE_BUTTON;
+    if ((keyState & MK_RBUTTON) != 0)
+        flags |= EVENTFLAG_RIGHT_MOUSE_BUTTON;
+    if ((keyState & MK_MBUTTON) != 0)
+        flags |= EVENTFLAG_MIDDLE_MOUSE_BUTTON;
     return flags;
 }
 
@@ -868,6 +884,7 @@ void BrowserManager::SetBrowserVisible(int id, bool visible)
 
     if (!visible)
     {
+        CancelDrag(id);
         ClearPendingPaint(id);
 
         if (focusedBrowserId_ == id)
@@ -885,6 +902,7 @@ void BrowserManager::DestroyBrowser(int id)
 
     player_stats_poll_.erase(id);
     pending_.erase(id);
+    CancelDrag(id);
 
     auto it = browsers_.find(id);
     if (it == browsers_.end())
@@ -1552,6 +1570,7 @@ void BrowserManager::FocusBrowser(int browserId, bool focus)
         if (focusedBrowserId_ != browserId)
             return;
 
+        CancelDrag(browserId);
         focusedBrowserId_ = -1;
         instance_to_change->view.SetFocused(false);
 
@@ -1628,6 +1647,8 @@ void BrowserManager::OnGameFocusLost()
         CefPostTask(TID_UI, base::BindOnce(&BrowserManager::OnGameFocusLost, base::Unretained(this)));
         return;
     }
+
+    CancelDrag();
 
     auto* focused = GetFocusedBrowser();
     if (!focused || !focused->browser)
@@ -1850,6 +1871,169 @@ void BrowserManager::OnDeviceReset(IDirect3DDevice9* device)
     RequestVisibleBrowsersRepaint();
 }
 
+bool BrowserManager::StartDragging(int browserId,
+                                   CefRefPtr<CefBrowser> browser,
+                                   CefRefPtr<CefDragData> dragData,
+                                   cef_drag_operations_mask_t allowedOps,
+                                   int x,
+                                   int y)
+{
+    CEF_REQUIRE_UI_THREAD();
+    (void)x;
+    (void)y;
+    if (!browser || !dragData || allowedOps == DRAG_OPERATION_NONE)
+        return false;
+
+    auto targetData = dragData->Clone();
+    if (!targetData)
+        return false;
+
+    // DragTargetDragEnter rejects file contents originating from StartDragging.
+    // The metadata and file names remain available after this call.
+    targetData->ResetFileContents();
+    CancelDrag();
+
+    drag_.browserId = browserId;
+    drag_.browser = std::move(browser);
+    drag_.data = std::move(targetData);
+    drag_.allowedOps = allowedOps;
+    drag_.currentOperation = DRAG_OPERATION_NONE;
+    drag_.lastX = last_mouse_x_.load();
+    drag_.lastY = last_mouse_y_.load();
+    drag_.entered = false;
+    drag_active_.store(true, std::memory_order_release);
+    return true;
+}
+
+void BrowserManager::UpdateDragCursor(int browserId, cef_drag_operations_mask_t operation)
+{
+    CEF_REQUIRE_UI_THREAD();
+    if (drag_.browserId == browserId && drag_.browser)
+        drag_.currentOperation = operation;
+}
+
+bool BrowserManager::HandleDragMouseMove(const CefMouseEvent& event)
+{
+    if (!drag_active_.load(std::memory_order_acquire))
+        return false;
+
+    CefPostTask(TID_UI, base::BindOnce(&BrowserManager::HandleDragMouseMoveOnUi,
+        base::Unretained(this), event));
+    return true;
+}
+
+void BrowserManager::HandleDragMouseMoveOnUi(CefMouseEvent event)
+{
+    CEF_REQUIRE_UI_THREAD();
+    if (!drag_.browser || !drag_.data)
+        return;
+
+    drag_.lastX = event.x;
+    drag_.lastY = event.y;
+
+    auto host = drag_.browser->GetHost();
+    if (!host)
+    {
+        CancelDrag();
+        return;
+    }
+
+    if (!drag_.entered)
+    {
+        host->DragTargetDragEnter(drag_.data, event, drag_.allowedOps);
+        drag_.entered = true;
+    }
+    host->DragTargetDragOver(event, drag_.allowedOps);
+}
+
+bool BrowserManager::HandleDragMouseUp(const CefMouseEvent& event)
+{
+    if (!drag_active_.exchange(false, std::memory_order_acq_rel))
+        return false;
+
+    CefPostTask(TID_UI, base::BindOnce(&BrowserManager::HandleDragMouseUpOnUi,
+        base::Unretained(this), event));
+    return true;
+}
+
+void BrowserManager::HandleDragMouseUpOnUi(CefMouseEvent event)
+{
+    CEF_REQUIRE_UI_THREAD();
+    if (!drag_.browser || !drag_.data)
+        return;
+
+    auto host = drag_.browser->GetHost();
+    if (!host)
+    {
+        drag_ = DragState{};
+        return;
+    }
+
+    if (!drag_.entered)
+        host->DragTargetDragEnter(drag_.data, event, drag_.allowedOps);
+    host->DragTargetDragOver(event, drag_.allowedOps);
+    host->DragTargetDrop(event);
+
+    DragState completed = drag_;
+    completed.lastX = event.x;
+    completed.lastY = event.y;
+    drag_ = DragState{};
+    host->DragSourceEndedAt(event.x, event.y, completed.currentOperation);
+    host->DragSourceSystemDragEnded();
+}
+
+void BrowserManager::CancelDrag(int browserId)
+{
+    if (!CefCurrentlyOn(TID_UI))
+    {
+        drag_active_.store(false, std::memory_order_release);
+        CefPostTask(TID_UI, base::BindOnce(&BrowserManager::CancelDrag,
+            base::Unretained(this), browserId));
+        return;
+    }
+
+    if (!drag_.browser || (browserId != -1 && drag_.browserId != browserId))
+        return;
+
+    DragState cancelled = drag_;
+    drag_ = DragState{};
+    drag_active_.store(false, std::memory_order_release);
+
+    auto host = cancelled.browser->GetHost();
+    if (!host)
+        return;
+
+    if (cancelled.entered)
+        host->DragTargetDragLeave();
+    host->DragSourceEndedAt(cancelled.lastX, cancelled.lastY, DRAG_OPERATION_NONE);
+    host->DragSourceSystemDragEnded();
+}
+
+int BrowserManager::BeginMouseClick(MouseClickTracker& tracker, int browserId, int x, int y, bool explicitDoubleClick)
+{
+    const uint32_t now = static_cast<uint32_t>(GetMessageTime());
+    const uint32_t elapsed = now - tracker.lastDownTime;
+    const int maxX = std::max(1, GetSystemMetrics(SM_CXDOUBLECLK) / 2);
+    const int maxY = std::max(1, GetSystemMetrics(SM_CYDOUBLECLK) / 2);
+    const bool sameBrowser = tracker.browserId == browserId;
+    const bool closeInTime = tracker.lastDownTime != 0 && elapsed <= GetDoubleClickTime();
+    const bool closeInSpace = std::abs(x - tracker.lastDownX) <= maxX && std::abs(y - tracker.lastDownY) <= maxY;
+
+    if (explicitDoubleClick && sameBrowser)
+        tracker.sequenceCount = 2;
+    else if (sameBrowser && closeInTime && closeInSpace)
+        tracker.sequenceCount = std::min(tracker.sequenceCount + 1, 3);
+    else
+        tracker.sequenceCount = 1;
+
+    tracker.lastDownTime = now;
+    tracker.lastDownX = x;
+    tracker.lastDownY = y;
+    tracker.activeCount = tracker.sequenceCount;
+    tracker.browserId = browserId;
+    return tracker.activeCount;
+}
+
 LRESULT BrowserManager::OnWndProcMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     bool native_ui_message_consumed = false;
@@ -1892,6 +2076,11 @@ LRESULT BrowserManager::OnWndProcMessage(HWND hwnd, UINT msg, WPARAM wParam, LPA
         }
     }
 
+    if (msg == WM_CAPTURECHANGED || msg == WM_CANCELMODE || msg == WM_KILLFOCUS)
+    {
+        CancelDrag();
+    }
+
     auto* focused_inst = GetFocusedBrowser();
     if (!focused_inst || !focused_inst->browser)
         return false;
@@ -1905,25 +2094,59 @@ LRESULT BrowserManager::OnWndProcMessage(HWND hwnd, UINT msg, WPARAM wParam, LPA
         case WM_MOUSEMOVE:
         case WM_LBUTTONDOWN:
         case WM_LBUTTONUP:
+        case WM_LBUTTONDBLCLK:
         case WM_RBUTTONDOWN:
         case WM_RBUTTONUP:
+        case WM_RBUTTONDBLCLK:
+        case WM_MBUTTONDOWN:
+        case WM_MBUTTONUP:
+        case WM_MBUTTONDBLCLK:
         case WM_MOUSEWHEEL:
         {
+            POINT point{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            if (msg == WM_MOUSEWHEEL)
+                ScreenToClient(hwnd, &point);
+
             CefMouseEvent evt;
-            evt.x = GET_X_LPARAM(lParam);
-            evt.y = GET_Y_LPARAM(lParam);
-            evt.modifiers = GetCefEventFlags();
+            evt.x = point.x;
+            evt.y = point.y;
+            evt.modifiers = GetCefMouseEventFlags(wParam);
+            last_mouse_x_.store(evt.x);
+            last_mouse_y_.store(evt.y);
 
             if (msg == WM_MOUSEMOVE)
+            {
+                if (HandleDragMouseMove(evt))
+                    return true;
                 host->SendMouseMoveEvent(evt, false);
-            else if (msg == WM_LBUTTONDOWN)
-                host->SendMouseClickEvent(evt, MBT_LEFT, false, 1);
+            }
+            else if (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK)
+            {
+                const int clickCount = BeginMouseClick(left_click_, focused_inst->id, evt.x, evt.y, msg == WM_LBUTTONDBLCLK);
+                host->SendMouseClickEvent(evt, MBT_LEFT, false, clickCount);
+                SetCapture(hwnd);
+            }
             else if (msg == WM_LBUTTONUP)
-                host->SendMouseClickEvent(evt, MBT_LEFT, true, 1);
-            else if (msg == WM_RBUTTONDOWN)
-                host->SendMouseClickEvent(evt, MBT_RIGHT, false, 1);
+            {
+                if (!HandleDragMouseUp(evt))
+                    host->SendMouseClickEvent(evt, MBT_LEFT, true, left_click_.activeCount);
+                if (GetCapture() == hwnd)
+                    ReleaseCapture();
+            }
+            else if (msg == WM_RBUTTONDOWN || msg == WM_RBUTTONDBLCLK)
+            {
+                const int clickCount = BeginMouseClick(right_click_, focused_inst->id, evt.x, evt.y, msg == WM_RBUTTONDBLCLK);
+                host->SendMouseClickEvent(evt, MBT_RIGHT, false, clickCount);
+            }
             else if (msg == WM_RBUTTONUP)
-                host->SendMouseClickEvent(evt, MBT_RIGHT, true, 1);
+                host->SendMouseClickEvent(evt, MBT_RIGHT, true, right_click_.activeCount);
+            else if (msg == WM_MBUTTONDOWN || msg == WM_MBUTTONDBLCLK)
+            {
+                const int clickCount = BeginMouseClick(middle_click_, focused_inst->id, evt.x, evt.y, msg == WM_MBUTTONDBLCLK);
+                host->SendMouseClickEvent(evt, MBT_MIDDLE, false, clickCount);
+            }
+            else if (msg == WM_MBUTTONUP)
+                host->SendMouseClickEvent(evt, MBT_MIDDLE, true, middle_click_.activeCount);
             else if (msg == WM_MOUSEWHEEL)
                 host->SendMouseWheelEvent(evt, 0, GET_WHEEL_DELTA_WPARAM(wParam));
 

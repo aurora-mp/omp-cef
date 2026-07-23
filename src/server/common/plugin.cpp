@@ -94,19 +94,26 @@ void CefPlugin::Shutdown()
 
 	running_ = false;
 
-    if (network_server_) {
-        network_server_->Stop();
-    }
+	io_context_.stop();
 
-    if (security_) {
-        security_->Shutdown();
-        security_.reset();
-    }
+	if (network_thread_.joinable()) {
+		network_thread_.join();
+	}
 
-    io_context_.stop();
+	// ASIO owns NetworkServer and SecurityManager callbacks. Destroy/cancel
+	// them only after the io_context thread can no longer be executing one.
+	if (network_server_) {
+		network_server_->Stop();
+	}
 
-    if (network_thread_.joinable()) {
-        network_thread_.join();
+	if (security_) {
+		security_->Shutdown();
+		security_.reset();
+	}
+
+    {
+        std::lock_guard<std::mutex> lock(main_thread_tasks_mutex_);
+        main_thread_tasks_.clear();
     }
 
     network_server_.reset();
@@ -129,7 +136,10 @@ void CefPlugin::OnPlayerConnect(int playerid)
         return;
     }
 
-    sessions_->RegisterPlayer(playerid);
+	// Read open.mp player data only from this server-thread callback. The ASIO
+	// handshake uses the immutable snapshot stored in NetworkSession.
+	const std::string officialIp = bridge_->GetPlayerAddressIp(playerid);
+	sessions_->RegisterPlayer(playerid, officialIp);
     player_ui_states_[playerid] = PlayerUiState{};
     LOG_DEBUG("OnPlayerConnect: player %d registered", playerid);
 }
@@ -139,12 +149,6 @@ void CefPlugin::OnPlayerClientInit(int playerid)
     if (!bridge_ || !running_)
         return;
 
-    if (bridge_->IsPlayerNpcBot(playerid))
-    {
-        LOG_DEBUG("OnPlayerClientInit: player %d is NPC -> ignored", playerid);
-        return;
-    }
-
     auto session = sessions_->GetSession(playerid);
     if (!session)
     {
@@ -152,7 +156,7 @@ void CefPlugin::OnPlayerClientInit(int playerid)
         return;
     }
 
-    if (session->handshake_complete && !session->cef_init_notified)
+    if (session->handshake_complete && session->cef_init_state.load() == CefInitState::Pending)
     {
         LOG_DEBUG("Player %d client init: handshake already complete -> OnCefInitialize(true)", playerid);
         NotifyCefInitialize(session, true, CEF_INIT_OK, "");
@@ -165,19 +169,21 @@ void CefPlugin::OnPlayerClientInit(int playerid)
 	{
 	    return;
 	}
+	const uint64_t epoch = session->epoch.load();
+	const std::weak_ptr<NetworkSession> weakSession = session;
 
     auto timer = std::make_shared<asio::steady_timer>(io_context_);
     timer->expires_after(std::chrono::seconds(10));
-    timer->async_wait([this, playerid, timer](const std::error_code& error_code)
+	timer->async_wait([this, playerid, weakSession, epoch, timer](const std::error_code& error_code)
     {
         if (error_code || !running_ || !bridge_)
             return;
 
-        auto session = sessions_->GetSession(playerid);
-        if (!session)
+		auto session = weakSession.lock();
+		if (!IsSessionCurrent(session, epoch))
             return;
 
-        if (!session->handshake_complete && !session->cef_init_notified)
+		if (!session->handshake_complete && session->cef_init_state.load() == CefInitState::Pending)
         {
             LOG_DEBUG("Player %d: handshake timeout -> OnCefInitialize(false)", playerid);
             NotifyCefInitialize(session, false, CEF_INIT_TIMEOUT, "CEF handshake timeout");
@@ -188,9 +194,6 @@ void CefPlugin::OnPlayerClientInit(int playerid)
 void CefPlugin::OnPlayerDisconnect(int playerid)
 {
     if (!bridge_)
-        return;
-
-    if (bridge_->IsPlayerNpcBot(playerid))
         return;
 
     resource_download_dialogs_.AbortDownload(*bridge_, playerid);
@@ -212,20 +215,45 @@ void CefPlugin::SetSpawnScreenState(int playerid, bool visible)
     player_ui_states_[playerid].spawnScreenVisible = visible;
 }
 
+void CefPlugin::InvalidatePawnBridge()
+{
+	{
+		std::lock_guard<std::mutex> lock(main_thread_tasks_mutex_);
+		main_thread_tasks_.clear();
+	}
+
+	if (bridge_)
+		bridge_->InvalidatePawn();
+}
+
 void CefPlugin::OnPacketReceived(const asio::ip::udp::endpoint& from, const char* data, int len)
 {
     if (!data || len <= 0)
         return;
 
 	auto network_session = sessions_->GetSessionFromAddress(from);
-	if (network_session && network_session->handshake_status == HandshakeStatus::CONNECTED && network_session->kcp_instance) {
+	bool receivedKcpPacket = false;
+	bool awaitingHandshakeFinalize = false;
+	if (network_session)
+	{
 		{
 			std::lock_guard<std::mutex> lock(network_session->kcp_mutex);
-			ikcp_input(network_session->kcp_instance, data, len);
+			if (network_session->handshake_status == HandshakeStatus::CONNECTED && network_session->kcp_instance)
+			{
+				ikcp_input(network_session->kcp_instance, data, len);
+				receivedKcpPacket = true;
+			}
+			else
+			{
+				awaitingHandshakeFinalize = network_session->handshake_status == HandshakeStatus::CHALLENGED;
+			}
 		}
 
+		if (receivedKcpPacket)
+		{
 		HandleKcpInput(network_session);
 		return;
+		}
 	}
 
     const auto packet_type = static_cast<PacketType>(static_cast<uint8_t>(data[0]));
@@ -243,7 +271,7 @@ void CefPlugin::OnPacketReceived(const asio::ip::udp::endpoint& from, const char
             return;
         }
     }
-    else if (network_session->handshake_status == HandshakeStatus::CHALLENGED)
+	else if (awaitingHandshakeFinalize)
     {
         if (packet_type != PacketType::HandshakeFinalize)
             return;
@@ -285,7 +313,7 @@ void CefPlugin::OnPacketReceived(const asio::ip::udp::endpoint& from, const char
 			break;
 		}
 		case PacketType::HandshakeFinalize:
-			if (network_session && network_session->handshake_status == HandshakeStatus::CHALLENGED) {
+			if (network_session && awaitingHandshakeFinalize) {
 				HandleHandshakeFinalize(from, std::get<HandshakeFinalizePacket>(packet.payload), network_session);
 			}
 
@@ -297,8 +325,8 @@ void CefPlugin::OnPacketReceived(const asio::ip::udp::endpoint& from, const char
 
 void CefPlugin::HandleRequestJoin(const asio::ip::udp::endpoint& from, const RequestJoinPacket& join_packet)
 {
-    if (!bridge_ || !running_)
-        return;
+	if (!running_)
+		return;
 
     const int playerid = join_packet.playerid;
     const std::string from_ip = from.address().to_string();
@@ -317,13 +345,7 @@ void CefPlugin::HandleRequestJoin(const asio::ip::udp::endpoint& from, const Req
         return;
     }
 
-    if (bridge_->IsPlayerNpcBot(playerid))
-    {
-        LOG_DEBUG("RequestJoin refused: pid=%d is NPC (from %s:%d)", playerid, from_ip.c_str(), from_port);
-        return;
-    }
-
-    const std::string official_ip = bridge_->GetPlayerAddressIp(playerid);
+	const std::string official_ip = session->official_ip;
 
     LOG_INFO("RequestJoin pid=%d from=%s:%d official=%s", playerid, from_ip.c_str(), from_port, official_ip.c_str());
 
@@ -335,8 +357,8 @@ void CefPlugin::HandleRequestJoin(const asio::ip::udp::endpoint& from, const Req
 
     const uint32_t clientVersion = join_packet.client_version;
     const uint32_t serverVersion = PLUGIN_VERSION_U32;
-    if (clientVersion != serverVersion)
-    {
+	if (clientVersion != serverVersion)
+	{
         JoinResponsePacket reject;
         reject.accepted = false;
         reject.kcp_conv_id = 0;
@@ -353,58 +375,69 @@ void CefPlugin::HandleRequestJoin(const asio::ip::udp::endpoint& from, const Req
 
         SendRawPacketToEndpoint(from, PacketType::JoinResponse, reject);
 
-        if (session->handshake_status != HandshakeStatus::CONNECTED)
-        {
-            session->handshake_status = HandshakeStatus::NONE;
-            session->handshake_complete = false;
-            NotifyCefInitialize(session, false, CEF_INIT_VERSION_MISMATCH, reject.message);
-        }
+		HandshakeStatus status;
+		{
+			std::lock_guard<std::mutex> lock(session->kcp_mutex);
+			status = session->handshake_status;
+		}
+
+		if (status != HandshakeStatus::CONNECTED && sessions_->ResetPlayerTransport(playerid, session))
+		{
+			NotifyCefInitialize(session, false, CEF_INIT_VERSION_MISMATCH, reject.message);
+		}
 
         return;
     }
 
-    if (session->handshake_status == HandshakeStatus::CONNECTED)
-    {
-        if (session->address == from)
-        {
-            LOG_DEBUG("RequestJoin ignored: pid=%d already CONNECTED on the same endpoint", playerid);
-            return;
+	HandshakeStatus previousStatus;
+	asio::ip::udp::endpoint previousAddress;
+	{
+		std::lock_guard<std::mutex> lock(session->kcp_mutex);
+		previousStatus = session->handshake_status;
+		previousAddress = session->address;
+	}
+
+	if (previousStatus == HandshakeStatus::CONNECTED)
+	{
+		if (previousAddress == from)
+		{
+			LOG_DEBUG("RequestJoin ignored: pid=%d already CONNECTED on the same endpoint", playerid);
+			return;
         }
 
-        LOG_INFO("RequestJoin rejoin: pid=%d endpoint changed from %s:%d to %s:%d -> resetting CEF transport",
-            playerid,
-            session->address.address().to_string().c_str(),
-            static_cast<int>(session->address.port()),
-            from_ip.c_str(),
-            from_port);
+		LOG_INFO("RequestJoin rejoin: pid=%d endpoint changed from %s:%d to %s:%d -> resetting CEF transport",
+			playerid,
+			previousAddress.address().to_string().c_str(),
+			static_cast<int>(previousAddress.port()),
+			from_ip.c_str(),
+			from_port);
+	}
+	else if (previousStatus == HandshakeStatus::CHALLENGED && previousAddress != from)
+	{
+		LOG_DEBUG("RequestJoin reattempt: pid=%d endpoint changed before finalize from %s:%d to %s:%d",
+			playerid,
+			previousAddress.address().to_string().c_str(),
+			static_cast<int>(previousAddress.port()),
+			from_ip.c_str(),
+			from_port);
+	}
 
-        sessions_->ResetPlayerTransport(playerid);
-        session = sessions_->GetSession(playerid);
-        if (!session)
-            return;
-    }
-    else if (session->handshake_status == HandshakeStatus::CHALLENGED && session->address != from)
-    {
-        LOG_DEBUG("RequestJoin reattempt: pid=%d endpoint changed before finalize from %s:%d to %s:%d",
-            playerid,
-            session->address.address().to_string().c_str(),
-            static_cast<int>(session->address.port()),
-            from_ip.c_str(),
-            from_port);
+	// Every accepted join starts a new transport generation. This invalidates
+	// callbacks already queued by a previous endpoint/handshake.
+	if (!sessions_->ResetPlayerTransport(playerid, session))
+		return;
 
-        sessions_->ResetPlayerTransport(playerid);
-        session = sessions_->GetSession(playerid);
-        if (!session)
-            return;
-    }
+	{
+		std::lock_guard<std::mutex> lock(session->kcp_mutex);
+		session->address = from;
+		session->handshake_status = HandshakeStatus::CHALLENGED;
+	}
 
-    session->address = from;
-    session->handshake_status = HandshakeStatus::CHALLENGED;
-    session->handshake_complete = false;
-    session->cef_init_notified = false;
-    session->cef_success = false;
-    session->cef_init_timer_started = false;
-    sessions_->MapAddressToPlayer(playerid, from);
+	if (!sessions_->MapAddressToPlayer(playerid, session, from))
+	{
+		session->Reset();
+		return;
+	}
 
     HandshakeChallengePacket response;
     response.cookie = security_->GenerateCookie(from);
@@ -417,39 +450,42 @@ void CefPlugin::HandleHandshakeFinalize(const asio::ip::udp::endpoint& from,
 	const HandshakeFinalizePacket& finalize_packet, 
 	std::shared_ptr<NetworkSession> session)
 {
-    if (!session || !bridge_ || !running_)
-        return;
+	if (!session || !running_)
+		return;
 
-    if (session->address != from)
-    {
+	const uint64_t epoch = session->epoch.load();
+	if (!IsSessionCurrent(session, epoch))
+		return;
+
+	bool validChallenge = false;
+	{
+		std::lock_guard<std::mutex> lock(session->kcp_mutex);
+		validChallenge = session->handshake_status == HandshakeStatus::CHALLENGED && session->address == from;
+	}
+
+	if (!validChallenge)
+	{
         std::string from_ip = from.address().to_string();
         LOG_WARN("HandshakeFinalize dropped: endpoint changed pid=%d (from %s:%d)", session->playerid, from_ip.c_str(), (int)from.port());
         return;
     }
 
-    if (!security_->ValidateCookie(from, finalize_packet.cookie))
-    {
-        LOG_WARN("HandshakeFinalize failed: invalid cookie pid=%d", session->playerid);
-        session->handshake_status = HandshakeStatus::NONE;
-        session->handshake_complete = false;
-
-        NotifyCefInitialize(session, false, CEF_INIT_HANDSHAKE_FAILED, "Handshake failed: invalid cookie");
+	if (!security_->ValidateCookie(from, finalize_packet.cookie))
+	{
+		LOG_WARN("HandshakeFinalize failed: invalid cookie pid=%d", session->playerid);
+		if (sessions_->ResetPlayerTransport(session->playerid, session))
+			NotifyCefInitialize(session, false, CEF_INIT_HANDSHAKE_FAILED, "Handshake failed: invalid cookie");
         return;
     }
 
     auto session_keys = security_->FinalizeKeyExchange(session->playerid, finalize_packet.client_public_key);
-    if (!session_keys)
-    {
-        LOG_WARN("HandshakeFinalize failed: key exchange pid=%d", session->playerid);
-        session->handshake_status = HandshakeStatus::NONE;
-        session->handshake_complete = false;
-
-        NotifyCefInitialize(session, false, CEF_INIT_HANDSHAKE_FAILED, "Handshake failed: key exchange");
+	if (!session_keys)
+	{
+		LOG_WARN("HandshakeFinalize failed: key exchange pid=%d", session->playerid);
+		if (sessions_->ResetPlayerTransport(session->playerid, session))
+			NotifyCefInitialize(session, false, CEF_INIT_HANDSHAKE_FAILED, "Handshake failed: key exchange");
         return;
     }
-
-	session->rx_key = std::move(session_keys->rx);
-	session->tx_key = std::move(session_keys->tx);
 
 	JoinResponsePacket join_response;
 	join_response.accepted = true;
@@ -464,21 +500,55 @@ void CefPlugin::HandleHandshakeFinalize(const asio::ip::udp::endpoint& from,
 		join_response.manifest_json = manifest.dump();
 	}
 
+	if (!IsSessionCurrent(session, epoch))
+		return;
+
+	bool transportCreated = false;
+	{
+		std::lock_guard<std::mutex> lock(session->kcp_mutex);
+		if (session->epoch.load() == epoch &&
+			session->handshake_status == HandshakeStatus::CHALLENGED &&
+			session->address == from)
+		{
+			session->rx_key = std::move(session_keys->rx);
+			session->tx_key = std::move(session_keys->tx);
+			session->kcp_instance = ikcp_create(session->playerid, session.get());
+			if (session->kcp_instance)
+			{
+				session->kcp_instance->output = kcp_output_callback;
+				ikcp_nodelay(session->kcp_instance, 1, 10, 2, 1);
+				ikcp_wndsize(session->kcp_instance, 256, 256);
+				session->handshake_status = HandshakeStatus::CONNECTED;
+				transportCreated = true;
+			}
+		}
+	}
+
+	if (!transportCreated)
+	{
+		if (sessions_->ResetPlayerTransport(session->playerid, session))
+			NotifyCefInitialize(session, false, CEF_INIT_HANDSHAKE_FAILED, "Handshake failed: transport allocation");
+		return;
+	}
+
+	if (!IsSessionCurrent(session, epoch))
+	{
+		session->Reset();
+		return;
+	}
+
 	SendRawPacketToEndpoint(from, PacketType::JoinResponse, join_response);
-
-	session->kcp_instance = ikcp_create(session->playerid, session.get());
-	session->kcp_instance->output = kcp_output_callback;
-
-	ikcp_nodelay(session->kcp_instance, 1, 10, 2, 1);
-	ikcp_wndsize(session->kcp_instance, 256, 256);
-
-	session->handshake_status = HandshakeStatus::CONNECTED;
 
 	ServerConfigPacket config_packet;
 	config_packet.master_resource_key = master_resource_key_;
     config_packet.resources_loader_ui = resource_download_dialogs_.UsesClientLoader();
-	SendPacketToPlayer(session->playerid, PacketType::ServerConfig, config_packet);
+	SendPacketToSession(session, PacketType::ServerConfig, config_packet);
 
+	if (!IsSessionCurrent(session, epoch))
+	{
+		session->Reset();
+		return;
+	}
 	session->handshake_complete = true;
 
     NotifyCefInitialize(session, true, CEF_INIT_OK, "");
@@ -519,41 +589,121 @@ void CefPlugin::HandleKcpInput(std::shared_ptr<NetworkSession> session)
         }
     }
 
+    const int playerid = session->playerid;
+	const uint64_t epoch = session->epoch.load();
+	if (!IsSessionCurrent(session, epoch))
+		return;
+
     for (auto& packet : pendingPackets)
     {
-        switch (packet.type)
+        // File-transfer state belongs to the ASIO/KCP thread. Only its UI
+        // notification is marshalled by HandleFileRequest to the main thread.
+        if (packet.type == PacketType::RequestFiles)
         {
-            case PacketType::RequestFiles:
+			HandleFileRequest(session, epoch, std::get<RequestFilesPacket>(packet.payload));
+            continue;
+        }
+
+		EnqueueMainThreadTask([this, session, playerid, epoch, packet = std::move(packet)]() mutable
+        {
+			if (!running_ || !IsSessionCurrent(session, epoch))
+                return;
+
+            switch (packet.type)
             {
-                HandleFileRequest(session->playerid, std::get<RequestFilesPacket>(packet.payload));
-                break;
-            }
-            case PacketType::DownloadComplete:
-            {
-				NotifyCefReady(session);
-                break;
-            }
-            case PacketType::ClientEmitEvent:
-            {
-                if (auto* event = std::get_if<ClientEmitEventPacket>(&packet.payload)) {
-                    HandleClientEvent(session->playerid, *event);
+                case PacketType::DownloadComplete:
+                {
+					// This task is already running from the open.mp main-thread tick.
+					// Dispatch inline to preserve packet order and avoid a second queue hop.
+					DispatchCefReadyMainThread(session, epoch);
+                    break;
                 }
-                else {
-                    LOG_ERROR("ClientEmitEvent payload mismatch (variant index=%zu)", packet.payload.index());
+                case PacketType::ClientEmitEvent:
+                {
+                    if (auto* event = std::get_if<ClientEmitEventPacket>(&packet.payload)) {
+                        HandleClientEvent(playerid, *event);
+                    }
+                    else {
+                        LOG_ERROR("ClientEmitEvent payload mismatch (variant index=%zu)", packet.payload.index());
+                    }
+                    break;
                 }
-                break;
+                default:
+                    break;
             }
-            default:
-                break;
+        });
+    }
+}
+
+bool CefPlugin::IsSessionCurrent(const std::shared_ptr<NetworkSession>& session, uint64_t epoch) const
+{
+	if (!session || !sessions_ || session->epoch.load() != epoch)
+		return false;
+
+	return sessions_->GetSession(session->playerid) == session;
+}
+
+void CefPlugin::EnqueueMainThreadTask(std::function<void()> task)
+{
+    if (!task || !running_)
+        return;
+
+    std::lock_guard<std::mutex> lock(main_thread_tasks_mutex_);
+    if (!running_)
+        return;
+
+    // Bound the queue so a malformed or abusive client cannot exhaust server
+    // memory before the next open.mp tick drains it.
+    static constexpr size_t MaxPendingMainThreadTasks = 4096;
+    if (main_thread_tasks_.size() >= MaxPendingMainThreadTasks)
+    {
+        LOG_WARN("Dropping CEF main-thread task because the queue is full.");
+        return;
+    }
+
+    main_thread_tasks_.emplace_back(std::move(task));
+}
+
+void CefPlugin::ProcessMainThreadTasks()
+{
+    std::vector<std::function<void()>> tasks;
+    {
+        std::lock_guard<std::mutex> lock(main_thread_tasks_mutex_);
+        static constexpr size_t MaxTasksPerTick = 512;
+        const size_t count = std::min(MaxTasksPerTick, main_thread_tasks_.size());
+        tasks.reserve(count);
+        for (size_t i = 0; i < count; ++i)
+        {
+            tasks.emplace_back(std::move(main_thread_tasks_.front()));
+            main_thread_tasks_.pop_front();
+        }
+    }
+
+    for (auto& task : tasks)
+    {
+        if (!running_)
+            break;
+
+        try
+        {
+            task();
+        }
+        catch (const std::exception& e)
+        {
+            LOG_ERROR("CEF main-thread task failed: %s", e.what());
+        }
+        catch (...)
+        {
+            LOG_ERROR("CEF main-thread task failed with an unknown exception.");
         }
     }
 }
 
-void CefPlugin::HandleFileRequest(int playerid, const RequestFilesPacket& request)
+void CefPlugin::HandleFileRequest(const std::shared_ptr<NetworkSession>& session, uint64_t epoch, const RequestFilesPacket& request)
 {
-	auto session = sessions_->GetSession(playerid);
-	if (!session)
+	if (!IsSessionCurrent(session, epoch))
 		return;
+	const int playerid = session->playerid;
 
 	std::vector<std::pair<std::string, size_t>> queuedFiles;
 	queuedFiles.reserve(request.files.size());
@@ -594,7 +744,11 @@ void CefPlugin::HandleFileRequest(int playerid, const RequestFilesPacket& reques
 	if (queuedFiles.empty() && !request.files.empty())
 		LOG_WARN("Resource download request from player %d did not match any registered resource file.", playerid);
 
-	resource_download_dialogs_.SetPlan(*bridge_, playerid, queuedFiles);
+	EnqueueMainThreadTask([this, session, playerid, epoch, queuedFiles = std::move(queuedFiles)]()
+	{
+		if (bridge_ && IsSessionCurrent(session, epoch))
+			resource_download_dialogs_.SetPlan(*bridge_, playerid, queuedFiles);
+	});
 }
 
 void CefPlugin::ProcessFileTransfers()
@@ -605,8 +759,16 @@ void CefPlugin::ProcessFileTransfers()
     auto all_sessions = sessions_->GetAllSessions();
     for (auto& session : all_sessions)
     {
-        if (!session || !session->kcp_instance || !session->handshake_complete)
+		if (!session || !session->handshake_complete)
             continue;
+		const uint64_t epoch = session->epoch.load();
+		if (!IsSessionCurrent(session, epoch))
+			continue;
+		{
+			std::lock_guard<std::mutex> guard(session->kcp_mutex);
+			if (!session->kcp_instance || session->handshake_status != HandshakeStatus::CONNECTED)
+				continue;
+		}
 
 		if (session->is_download_paused.load(std::memory_order_relaxed)) {
             continue;
@@ -619,12 +781,14 @@ void CefPlugin::ProcessFileTransfers()
 
             LOG_DEBUG("Starting transfer for player %d - file '%s'", session->playerid, session->current_transfer->relativePath.c_str());
 
-            resource_download_dialogs_.UpdateFileProgress(
-                *bridge_,
-                session->playerid,
-                session->current_transfer->relativePath,
-                0,
-                session->current_transfer->content.size());
+            const int playerid = session->playerid;
+            const std::string relativePath = session->current_transfer->relativePath;
+            const size_t totalBytes = session->current_transfer->content.size();
+			EnqueueMainThreadTask([this, session, playerid, epoch, relativePath, totalBytes]()
+            {
+				if (bridge_ && IsSessionCurrent(session, epoch))
+                    resource_download_dialogs_.UpdateFileProgress(*bridge_, playerid, relativePath, 0, totalBytes);
+            });
         }
 
         auto& transfer = session->current_transfer;
@@ -643,7 +807,13 @@ void CefPlugin::ProcessFileTransfers()
             {
                 LOG_DEBUG("Completed transfer for player %d - file '%s'", session->playerid, transfer->relativePath.c_str());
 
-                resource_download_dialogs_.CompleteCurrentFile(*bridge_, session->playerid, transfer->relativePath);
+                const int playerid = session->playerid;
+                const std::string relativePath = transfer->relativePath;
+				EnqueueMainThreadTask([this, session, playerid, epoch, relativePath]()
+                {
+					if (bridge_ && IsSessionCurrent(session, epoch))
+                        resource_download_dialogs_.CompleteCurrentFile(*bridge_, playerid, relativePath);
+                });
                 session->current_transfer = nullptr;
                 break;
             }
@@ -675,17 +845,25 @@ void CefPlugin::ProcessFileTransfers()
                 transfer->content.begin() + chunkOffset + chunkSize
             );
 
-            SendPacketToPlayer(session->playerid, PacketType::FileData, packet);
+			SendPacketToSession(session, PacketType::FileData, packet);
 
             ++transfer->currentChunkIndex;
             ++sent_this_tick;
+        }
 
-            resource_download_dialogs_.UpdateFileProgress(
-                *bridge_,
-                session->playerid,
-                transfer->relativePath,
-                std::min(static_cast<size_t>(transfer->currentChunkIndex) * FILE_CHUNK_SIZE, transfer->content.size()),
-                transfer->content.size());
+        // One progress notification per network tick is enough. Enqueuing one
+        // task per file chunk could otherwise overwhelm the main-thread queue.
+        if (transfer)
+        {
+            const int playerid = session->playerid;
+            const std::string relativePath = transfer->relativePath;
+            const size_t bytesSent = std::min(static_cast<size_t>(transfer->currentChunkIndex) * FILE_CHUNK_SIZE, transfer->content.size());
+            const size_t totalBytes = transfer->content.size();
+			EnqueueMainThreadTask([this, session, playerid, epoch, relativePath, bytesSent, totalBytes]()
+            {
+				if (bridge_ && IsSessionCurrent(session, epoch))
+                    resource_download_dialogs_.UpdateFileProgress(*bridge_, playerid, relativePath, bytesSent, totalBytes);
+            });
         }
     }
 }
@@ -708,21 +886,31 @@ void CefPlugin::SendPacketToPlayer(int playerid, PacketType type, const PacketPa
     if (!session)
         return;
 
+	SendPacketToSession(session, type, payload);
+}
+
+void CefPlugin::SendPacketToSession(const std::shared_ptr<NetworkSession>& session, PacketType type, const PacketPayload& payload)
+{
+	if (!session)
+		return;
+
     NetworkPacket packet{ type, payload };
 
     std::string raw_data;
     if (!SerializePacket(packet, raw_data)) {
-        LOG_ERROR("Failed to serialize packet (type %d) for player %d", (int)type, playerid);
+		LOG_ERROR("Failed to serialize packet (type %d) for player %d", (int)type, session->playerid);
         return;
     }
 
-    std::vector<uint8_t> encrypted = EncryptPacket({ raw_data.begin(), raw_data.end() }, session->tx_key);
-    if (encrypted.empty())
+    std::lock_guard<std::mutex> lock(session->kcp_mutex);
+	if (!session->kcp_instance || session->handshake_status != HandshakeStatus::CONNECTED)
         return;
 
-    std::lock_guard<std::mutex> lock(session->kcp_mutex);
-    if (!session->kcp_instance)
-        return;
+	// tx_key is replaced during transport reset, so encryption must be covered
+	// by the same mutex as the KCP instance.
+	std::vector<uint8_t> encrypted = EncryptPacket({ raw_data.begin(), raw_data.end() }, session->tx_key);
+	if (encrypted.empty())
+		return;
 
     ikcp_send(session->kcp_instance, (const char*)encrypted.data(), (int)encrypted.size());
 
@@ -735,21 +923,34 @@ void CefPlugin::NotifyCefInitialize(std::shared_ptr<NetworkSession> session, boo
 	if (!session || !bridge_)
 		return;
 
-	if (session->cef_init_notified)
-		return;
+	uint64_t epoch;
+	{
+		// Reset uses the same mutex, making the state transition and generation
+		// snapshot one indivisible transport operation.
+		std::lock_guard<std::mutex> lock(session->kcp_mutex);
+		epoch = session->epoch.load();
+		CefInitState expected = CefInitState::Pending;
+		const CefInitState desired = success ? CefInitState::Success : CefInitState::Failed;
+		if (!session->cef_init_state.compare_exchange_strong(expected, desired))
+			return;
+	}
 
-    session->cef_init_notified = true;
-    session->cef_success = success;
+    const int playerid = session->playerid;
+	EnqueueMainThreadTask([this, session, playerid, epoch, success, reason, message = std::move(message)]()
+    {
+		if (!bridge_ || !IsSessionCurrent(session, epoch))
+            return;
 
-    std::vector<Argument> args;
-    args.emplace_back(session->playerid);
-    args.emplace_back(success);
-    args.emplace_back(reason);
-    args.emplace_back(message);
-    bridge_->CallPawnPublic("OnCefInitialize", args);
+        std::vector<Argument> args;
+        args.emplace_back(playerid);
+        args.emplace_back(success);
+        args.emplace_back(reason);
+        args.emplace_back(message);
+        bridge_->CallPawnPublic("OnCefInitialize", args);
 
-    for (auto* h : GetCefEventHandlers())
-        h->onCefInitialize(session->playerid, success, reason, message.c_str());
+        for (auto* h : GetCefEventHandlers())
+            h->onCefInitialize(playerid, success, reason, message.c_str());
+    });
 }
 
 void CefPlugin::NotifyCefReady(std::shared_ptr<NetworkSession> session)
@@ -757,18 +958,32 @@ void CefPlugin::NotifyCefReady(std::shared_ptr<NetworkSession> session)
 	if (!session || !bridge_)
 		return;
 
-	if (!session->cef_init_notified)
+	if (session->cef_init_state.load() != CefInitState::Success)
 		return;
 
-    if (!session->cef_success)
+	const uint64_t epoch = session->epoch.load();
+	EnqueueMainThreadTask([this, session, epoch]()
+    {
+		DispatchCefReadyMainThread(session, epoch);
+    });
+}
+
+void CefPlugin::DispatchCefReadyMainThread(const std::shared_ptr<NetworkSession>& session, uint64_t epoch)
+{
+	if (!bridge_ || !IsSessionCurrent(session, epoch) || session->cef_init_state.load() != CefInitState::Success)
 		return;
 
-    std::vector<Argument> args;
-    args.emplace_back(session->playerid);
-    bridge_->CallPawnPublic("OnCefReady", args);
+	bool expected = false;
+	if (!session->cef_ready_notified.compare_exchange_strong(expected, true))
+		return;
 
-    for (auto* h : GetCefEventHandlers())
-        h->onCefReady(session->playerid);
+	const int playerid = session->playerid;
+	std::vector<Argument> args;
+	args.emplace_back(playerid);
+	bridge_->CallPawnPublic("OnCefReady", args);
+
+	for (auto* h : GetCefEventHandlers())
+		h->onCefReady(playerid);
 }
 
 void CefPlugin::BeginDownloadUi(int playerid)
