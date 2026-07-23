@@ -42,6 +42,7 @@ public:
     std::string GetPlayerAddressIp(int playerid) override;
     void KickPlayer(int playerid) override;
     bool IsPlayerNpcBot(int playerid) override;
+	void InvalidatePawn() override;
 
 private:
     ICore* core_;

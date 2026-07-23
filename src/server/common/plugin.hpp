@@ -1,9 +1,13 @@
 #pragma once
 
 #include <asio.hpp>
+#include <deque>
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <shared/packet.hpp>
 #include <unordered_map>
+#include <vector>
 
 #include "api.hpp"
 #include "bridge.hpp"
@@ -54,11 +58,13 @@ public:
 	void OnPlayerDisconnect(int playerid);
 	bool OnDialogResponse(int playerid, int dialogid);
 	void SetSpawnScreenState(int playerid, bool visible);
+	void InvalidatePawnBridge();
 
 	void OnPacketReceived(const asio::ip::udp::endpoint& from, const char* data, int len);
 
-	void HandleFileRequest(int playerid, const RequestFilesPacket& request);
+	void HandleFileRequest(const std::shared_ptr<NetworkSession>& session, uint64_t epoch, const RequestFilesPacket& request);
 	void ProcessFileTransfers();
+	void ProcessMainThreadTasks();
 
 	void SendRawPacketToEndpoint(const asio::ip::udp::endpoint& endpoint, PacketType type, const PacketPayload& payload);
 	void SendPacketToPlayer(int playerid, PacketType type, const PacketPayload& payload);
@@ -84,6 +90,10 @@ private:
 	void HandleRequestJoin(const asio::ip::udp::endpoint& from, const RequestJoinPacket& packet);
 	void HandleHandshakeFinalize(const asio::ip::udp::endpoint& from, const HandshakeFinalizePacket& finalize_packet, std::shared_ptr<NetworkSession> session);
 	void HandleKcpInput(std::shared_ptr<NetworkSession> session);
+	void SendPacketToSession(const std::shared_ptr<NetworkSession>& session, PacketType type, const PacketPayload& payload);
+	void EnqueueMainThreadTask(std::function<void()> task);
+	bool IsSessionCurrent(const std::shared_ptr<NetworkSession>& session, uint64_t epoch) const;
+	void DispatchCefReadyMainThread(const std::shared_ptr<NetworkSession>& session, uint64_t epoch);
 
     void BeginDownloadUi(int playerid);
     void EndDownloadUi(int playerid);
@@ -111,6 +121,8 @@ private:
 	std::unique_ptr<NetworkServer> network_server_;
 	std::thread network_thread_;
 	std::atomic<bool> running_{ false };
+	std::mutex main_thread_tasks_mutex_;
+	std::deque<std::function<void()>> main_thread_tasks_;
 
 	std::unordered_map<std::string, RegisteredEvent> registered_events_;
 };

@@ -23,6 +23,13 @@ enum class HandshakeStatus : uint8_t
 	CONNECTED
 };
 
+enum class CefInitState : uint8_t
+{
+	Pending,
+	Success,
+	Failed
+};
+
 struct FileTransfer
 {
 	std::string resourceName;
@@ -36,14 +43,16 @@ struct FileTransfer
 struct NetworkSession
 {
 	int playerid = -1;
+	std::string official_ip;
 	asio::ip::udp::endpoint address;
 	ikcpcb* kcp_instance = nullptr;
 
 	HandshakeStatus handshake_status{HandshakeStatus::NONE};
 	std::atomic_bool handshake_complete{false};
 	std::atomic_bool cef_init_timer_started{false};
-	bool cef_init_notified{false};
-	bool cef_success{false};
+	std::atomic<CefInitState> cef_init_state{CefInitState::Pending};
+	std::atomic_bool cef_ready_notified{false};
+	std::atomic<uint64_t> epoch{1};
 
 	std::vector<uint8_t> rx_key;
 	std::vector<uint8_t> tx_key;
@@ -54,15 +63,16 @@ struct NetworkSession
 	std::shared_ptr<FileTransfer> current_transfer = nullptr;
 	std::atomic<bool> is_download_paused{false};
 
-	bool chat_input_open{false};
+	std::atomic_bool chat_input_open{false};
 
 	std::mutex kcp_mutex;
 
+	~NetworkSession();
 	void Reset();
 
 private:
 	void ClearDownloadState();
-	void ReleaseKcp();
+	void ReleaseKcpUnlocked();
 };
 
 class NetworkSessionManager
@@ -74,9 +84,9 @@ public:
 	NetworkSessionManager& operator=(const NetworkSessionManager&) = delete;
 
 	void SetSender(std::function<void(const asio::ip::udp::endpoint&, const char*, int)> fn);
-	void RegisterPlayer(int playerid);
+	void RegisterPlayer(int playerid, std::string officialIp);
 	void RemovePlayer(int playerid);
-	void ResetPlayerTransport(int playerid);
+	bool ResetPlayerTransport(int playerid, const std::shared_ptr<NetworkSession>& expectedSession);
 
 	bool IsEndpointRecentlyClosed(const asio::ip::udp::endpoint& addr);
 	void ClearClosedEndpoint(const asio::ip::udp::endpoint& addr);
@@ -87,16 +97,18 @@ public:
 	std::shared_ptr<NetworkSession> GetSession(int playerid);
 	std::vector<std::shared_ptr<NetworkSession>> GetAllSessions();
 	bool HasPlayerPlugin(int playerid) const;
-	void MapAddressToPlayer(int playerid, const asio::ip::udp::endpoint& addr);
+	bool MapAddressToPlayer(int playerid, const std::shared_ptr<NetworkSession>& expectedSession, const asio::ip::udp::endpoint& addr);
 	void SetDownloadPaused(int playerid, bool paused);
 
 private:
 	static constexpr std::chrono::milliseconds CLOSED_ENDPOINT_RETENTION{3000};
 
 	void TrackClosedEndpoint(const asio::ip::udp::endpoint& addr);
+	void TrackClosedEndpoint(const std::string& endpointKey);
 	void RemoveExpiredClosedEndpoints();
 
 	void UnmapAddress(const asio::ip::udp::endpoint& addr);
+	void UnmapPlayer(int playerid, bool trackAsClosed);
 	std::string EndpointToStr(const asio::ip::udp::endpoint& addr) const;
 
 	mutable std::mutex mutex_;
