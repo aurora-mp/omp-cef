@@ -163,6 +163,26 @@ bool BrowserClient::OnProcessMessageReceived(CefRefPtr<CefBrowser> /*browser*/,
 
     const std::string msg_name = message->GetName();
 
+    if (msg_name == "cef_screen_capture_start")
+    {
+        CefRefPtr<CefListValue> args = message->GetArgumentList();
+        const int width = args->GetSize() > 0 && args->GetType(0) == VTYPE_INT
+            ? args->GetInt(0) : 640;
+        const int height = args->GetSize() > 1 && args->GetType(1) == VTYPE_INT
+            ? args->GetInt(1) : 360;
+        const int fps = args->GetSize() > 2 && args->GetType(2) == VTYPE_INT
+            ? args->GetInt(2) : 15;
+
+        manager_.StartScreenCapture(browserId_, width, height, fps);
+        return true;
+    }
+
+    if (msg_name == "cef_screen_capture_stop")
+    {
+        manager_.StopScreenCapture(browserId_);
+        return true;
+    }
+
     if (msg_name == "emit_event")
     {
         CefRefPtr<CefListValue> args = message->GetArgumentList();

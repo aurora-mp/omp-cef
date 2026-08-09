@@ -18,6 +18,14 @@ static std::map<std::string, std::vector<PendingArgs>> pending_events_;
 
 static bool g_chat_input_open = false;
 
+struct ScreenCaptureCallback
+{
+    CefRefPtr<CefV8Context> context;
+    CefRefPtr<CefV8Value> function;
+};
+
+static std::map<int, ScreenCaptureCallback> screen_capture_callbacks_;
+
 static CefV8ValueList BuildJsArgs(const PendingArgs& pending)
 {
     CefV8ValueList jsArgs;
@@ -108,7 +116,66 @@ public:
                  CefRefPtr<CefV8Value>& retval,
                  CefString& exception) override
     {
-        if (name == "emit")
+        if (name == "screen_start")
+        {
+            if (arguments.empty() || !arguments[0]->IsFunction())
+            {
+                exception = "Invalid arguments to cef.screen.start(callback[, width, height, fps])";
+                return true;
+            }
+
+            CefRefPtr<CefV8Context> context = CefV8Context::GetCurrentContext();
+            CefRefPtr<CefBrowser> browser = context ? context->GetBrowser() : nullptr;
+            CefRefPtr<CefFrame> frame = context ? context->GetFrame() : nullptr;
+            if (!context || !browser || !frame || !frame->IsMain())
+            {
+                exception = "cef.screen.start() is only available in the main frame";
+                return true;
+            }
+
+            const int width = arguments.size() > 1 && arguments[1]->IsInt()
+                ? arguments[1]->GetIntValue() : 640;
+            const int height = arguments.size() > 2 && arguments[2]->IsInt()
+                ? arguments[2]->GetIntValue() : 360;
+            const int fps = arguments.size() > 3 && arguments[3]->IsInt()
+                ? arguments[3]->GetIntValue() : 15;
+
+            screen_capture_callbacks_[browser->GetIdentifier()] = ScreenCaptureCallback{
+                context,
+                arguments[0]
+            };
+
+            CefRefPtr<CefProcessMessage> message = CefProcessMessage::Create("cef_screen_capture_start");
+            CefRefPtr<CefListValue> list = message->GetArgumentList();
+            list->SetInt(0, width);
+            list->SetInt(1, height);
+            list->SetInt(2, fps);
+            frame->SendProcessMessage(PID_BROWSER, message);
+
+            retval = CefV8Value::CreateBool(true);
+            return true;
+        }
+        else if (name == "screen_stop")
+        {
+            CefRefPtr<CefV8Context> context = CefV8Context::GetCurrentContext();
+            CefRefPtr<CefBrowser> browser = context ? context->GetBrowser() : nullptr;
+            CefRefPtr<CefFrame> frame = context ? context->GetFrame() : nullptr;
+            if (!frame || !frame->IsMain())
+            {
+                exception = "cef.screen.stop() is only available in the main frame";
+                return true;
+            }
+
+            if (browser)
+                screen_capture_callbacks_.erase(browser->GetIdentifier());
+
+            CefRefPtr<CefProcessMessage> message = CefProcessMessage::Create("cef_screen_capture_stop");
+            frame->SendProcessMessage(PID_BROWSER, message);
+
+            retval = CefV8Value::CreateBool(true);
+            return true;
+        }
+        else if (name == "emit")
         {
             if (arguments.size() < 1 || !arguments[0]->IsString())
             {
@@ -272,7 +339,39 @@ public:
         cefObj->SetValue("isChatInputOpen", CefV8Value::CreateFunction("isChatInputOpen", handler), V8_PROPERTY_ATTRIBUTE_NONE);
         cefObj->SetValue("exitGame", CefV8Value::CreateFunction("exitGame", handler), V8_PROPERTY_ATTRIBUTE_NONE);
 
+        if (frame && frame->IsMain())
+        {
+            CefRefPtr<CefV8Value> screenObj = CefV8Value::CreateObject(nullptr, nullptr);
+            screenObj->SetValue("start", CefV8Value::CreateFunction("screen_start", handler), V8_PROPERTY_ATTRIBUTE_NONE);
+            screenObj->SetValue("stop", CefV8Value::CreateFunction("screen_stop", handler), V8_PROPERTY_ATTRIBUTE_NONE);
+            cefObj->SetValue("screen", screenObj, V8_PROPERTY_ATTRIBUTE_READONLY);
+        }
+
         global->SetValue("cef", cefObj, V8_PROPERTY_ATTRIBUTE_NONE);
+    }
+
+    void OnContextReleased(CefRefPtr<CefBrowser> browser,
+                           CefRefPtr<CefFrame> frame,
+                           CefRefPtr<CefV8Context> context) override
+    {
+        CEF_REQUIRE_RENDERER_THREAD();
+
+        if (!browser)
+            return;
+
+        const auto it = screen_capture_callbacks_.find(browser->GetIdentifier());
+        if (it == screen_capture_callbacks_.end() ||
+            !it->second.context || !it->second.context->IsSame(context))
+        {
+            return;
+        }
+
+        screen_capture_callbacks_.erase(it);
+        if (frame)
+        {
+            CefRefPtr<CefProcessMessage> message = CefProcessMessage::Create("cef_screen_capture_stop");
+            frame->SendProcessMessage(PID_BROWSER, message);
+        }
     }
 
     bool OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
@@ -281,6 +380,46 @@ public:
                                   CefRefPtr<CefProcessMessage> message) override
     {
         CEF_REQUIRE_RENDERER_THREAD();
+
+        if (message->GetName() == "cef_screen_capture_frame")
+        {
+            const auto callback_it = screen_capture_callbacks_.find(browser->GetIdentifier());
+            if (callback_it == screen_capture_callbacks_.end())
+                return true;
+
+            CefRefPtr<CefListValue> args = message->GetArgumentList();
+            if (args->GetSize() < 5 ||
+                args->GetType(0) != VTYPE_BINARY ||
+                args->GetType(1) != VTYPE_INT ||
+                args->GetType(2) != VTYPE_INT)
+            {
+                return true;
+            }
+
+            CefRefPtr<CefBinaryValue> binary = args->GetBinary(0);
+            auto& callback = callback_it->second;
+            if (!binary || !binary->IsValid() ||
+                !callback.context || !callback.function ||
+                !callback.context->Enter())
+            {
+                return true;
+            }
+
+            CefRefPtr<CefV8Value> pixels = CefV8Value::CreateArrayBufferWithCopy(
+                const_cast<void*>(binary->GetRawData()), binary->GetSize());
+            CefRefPtr<CefV8Value> captured_frame = CefV8Value::CreateObject(nullptr, nullptr);
+            captured_frame->SetValue("data", pixels, V8_PROPERTY_ATTRIBUTE_READONLY);
+            captured_frame->SetValue("width", CefV8Value::CreateInt(args->GetInt(1)), V8_PROPERTY_ATTRIBUTE_READONLY);
+            captured_frame->SetValue("height", CefV8Value::CreateInt(args->GetInt(2)), V8_PROPERTY_ATTRIBUTE_READONLY);
+            captured_frame->SetValue("sequence", CefV8Value::CreateInt(args->GetInt(3)), V8_PROPERTY_ATTRIBUTE_READONLY);
+            captured_frame->SetValue("timestamp", CefV8Value::CreateDouble(args->GetDouble(4)), V8_PROPERTY_ATTRIBUTE_READONLY);
+            captured_frame->SetValue("format", CefV8Value::CreateString("RGBA"), V8_PROPERTY_ATTRIBUTE_READONLY);
+
+            CefV8ValueList callback_args{ captured_frame };
+            callback.function->ExecuteFunction(nullptr, callback_args);
+            callback.context->Exit();
+            return true;
+        }
 
         if (message->GetName() == "emit_event")
         {
