@@ -21,6 +21,7 @@ Client/server CEF plugin for **open.mp** and **SA-MP**.
 - Pawn natives and callbacks
 - JavaScript <-> Pawn/C# event bridge
 - Focus, cursor, input and audio controls
+- Game screen capture exposed to CEF interfaces as RGBA frames
 - Custom ESC menu support
 - Custom TAB menu (scoreboard) support
 - Secure client/server handshake and UDP transport
@@ -83,6 +84,38 @@ Short version:
 - Browser lifecycle
 - Hidden browser navigation
 - Stress testing
+- In-game camera preview (`/camera` in the demo gamemode)
+
+## Game screen capture
+
+CEF pages can receive the current GTA frame through `window.cef.screen`. Frames
+are captured before omp-cef overlays are rendered, preventing recursive capture
+when a preview is displayed inside a browser.
+
+```js
+const canvas = document.querySelector('canvas');
+const context = canvas.getContext('2d', { alpha: false });
+
+cef.screen.start((frame) => {
+  canvas.width = frame.width;
+  canvas.height = frame.height;
+
+  const pixels = new Uint8ClampedArray(frame.data);
+  context.putImageData(
+    new ImageData(pixels, frame.width, frame.height),
+    0,
+    0
+  );
+}, 640, 360, 15);
+
+addEventListener('beforeunload', () => cef.screen.stop(), { once: true });
+```
+
+`cef.screen.start(callback, width, height, fps)` returns frames with `data`
+(`ArrayBuffer`, RGBA), `width`, `height`, `sequence`, `timestamp`, and `format`.
+Width and height are clamped to `16..1280` and `16..720`; FPS is clamped to
+`1..30`. Defaults are `640x360` at `15 FPS`. High resolutions may reduce the
+effective FPS, and capture stops automatically when the page or browser closes.
 
 ## Contributing
 

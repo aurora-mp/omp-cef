@@ -1,0 +1,25 @@
+{
+  "user": "aurora-mp",
+  "repo": "omp-cef",
+  "website": "https://github.com/aurora-mp/omp-cef",
+  "preset": "openmp",
+  "include_path": "src/server",
+  "resources": [
+    {
+      "name": "^cef-omp-v(.*)-x86\\.zip$",
+      "platform": "windows",
+      "archive": true,
+      "plugins": [
+        "components/Cef.dll"
+      ]
+    },
+    {
+      "name": "^cef-omp-v(.*)-x86\\.zip$",
+      "platform": "linux",
+      "archive": true,
+      "plugins": [
+        "components/Cef.so"
+      ]
+    }
+  ]
+}

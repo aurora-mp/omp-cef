@@ -30,6 +30,7 @@ tests/
           world3d.html
           events.html
           input.html
+          camera.html
           red.html
           blue.html
           empty.html
@@ -51,6 +52,7 @@ tests/
           world3d.html
           events.html
           input.html
+          camera.html
           red.html
           blue.html
           empty.html
@@ -219,6 +221,13 @@ This keeps the sample logic consistent across both platforms.
 /inputdestroy
 ```
 
+### Game screen capture
+
+```txt
+/camera
+/cameradestroy
+```
+
 ### Stress test
 
 ```txt
@@ -284,6 +293,11 @@ JavaScript -> CEF browser -> Pawn
 ### Input / focus
 
 Demonstrates browser focus and keyboard input handling.
+
+### Game screen capture
+
+Demonstrates a phone-like CEF interface showing the live GTA frame through
+`cef.screen.start()` without capturing the CEF overlay itself.
 
 ### Stress test
 

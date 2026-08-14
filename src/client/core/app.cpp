@@ -284,6 +284,7 @@ void App::Tick()
 
     focus_.Update();
     browser_.TickGameData();
+    browser_.CaptureScreen();
     browser_.RenderAll();
     
     if (pending_clear_chat_)

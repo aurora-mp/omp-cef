@@ -542,6 +542,8 @@ void BrowserManager::Shutdown()
 
     LOG_DEBUG("Shutting down CEF Browser manager...");
 
+    screen_capture_.StopAll();
+    screen_capture_.OnDeviceLost();
     browsers_.clear();
     worldRenderers_.clear();
     entityToBrowserId_.clear();
@@ -1123,8 +1125,102 @@ void BrowserManager::OnBrowserCreated(int id, CefRefPtr<CefBrowser> browser)
 void BrowserManager::OnBrowserClosed(int id)
 {
     player_stats_poll_.erase(id);
+    screen_capture_.Stop(id);
     pending_.erase(id);
     browsers_.erase(id);
+}
+
+void BrowserManager::StartScreenCapture(int browserId, int width, int height, int fps)
+{
+    if (!GetBrowserInstance(browserId))
+        return;
+
+    const auto config = screen_capture_.Start(browserId, width, height, fps);
+    LOG_INFO("[ScreenCapture] Started for browser {} ({}x{} @ {} FPS)",
+        browserId, config.width, config.height, config.fps);
+}
+
+void BrowserManager::StopScreenCapture(int browserId)
+{
+    screen_capture_.Stop(browserId);
+    LOG_INFO("[ScreenCapture] Stopped for browser {}", browserId);
+}
+
+void BrowserManager::CaptureScreen()
+{
+    if (isCefUpdatesPaused_ || is_shutting_down_ || !screen_capture_.HasSubscriptions())
+        return;
+
+    auto* device = RenderManager::Instance().GetDevice();
+    if (!device)
+        return;
+
+    auto frames = screen_capture_.CaptureDueFrames(device, ::GetTickCount64());
+    for (auto& frame : frames)
+    {
+        const int browser_id = frame->browser_id;
+        const uint64_t generation = frame->generation;
+        if (!CefPostTask(TID_UI, base::BindOnce(
+                &BrowserManager::DispatchScreenFrameOnUi,
+                base::Unretained(this),
+                std::move(frame))))
+        {
+            screen_capture_.CompleteFrame(browser_id, generation);
+        }
+    }
+}
+
+void BrowserManager::DispatchScreenFrameOnUi(std::shared_ptr<CapturedScreenFrame> frame)
+{
+    CEF_REQUIRE_UI_THREAD();
+
+    if (!frame)
+        return;
+
+    const auto complete = [this, &frame]() {
+        screen_capture_.CompleteFrame(frame->browser_id, frame->generation);
+    };
+
+    if (is_shutting_down_ ||
+        !screen_capture_.IsCurrent(frame->browser_id, frame->generation) ||
+        !frame->rgba || frame->rgba->empty())
+    {
+        complete();
+        return;
+    }
+
+    auto* instance = GetBrowserInstance(frame->browser_id);
+    if (!instance || !instance->browser || !instance->browser->IsValid())
+    {
+        complete();
+        return;
+    }
+
+    CefRefPtr<CefFrame> main_frame = instance->browser->GetMainFrame();
+    if (!main_frame || !main_frame->IsValid())
+    {
+        complete();
+        return;
+    }
+
+    CefRefPtr<CefBinaryValue> pixels = CefBinaryValue::Create(
+        frame->rgba->data(), frame->rgba->size());
+    if (!pixels)
+    {
+        complete();
+        return;
+    }
+
+    CefRefPtr<CefProcessMessage> message = CefProcessMessage::Create("cef_screen_capture_frame");
+    CefRefPtr<CefListValue> args = message->GetArgumentList();
+    args->SetBinary(0, pixels);
+    args->SetInt(1, frame->width);
+    args->SetInt(2, frame->height);
+    args->SetInt(3, static_cast<int>(frame->sequence));
+    args->SetDouble(4, frame->timestamp_ms);
+    main_frame->SendProcessMessage(PID_RENDERER, message);
+
+    complete();
 }
 
 void BrowserManager::ClearPendingPaint(int id)
@@ -1798,6 +1894,7 @@ void BrowserManager::OnDeviceLost()
     // Stop CEF rendering during device reset
     // This prevents CEF from trying to update textures while they're invalid
     isCefUpdatesPaused_ = true;
+    screen_capture_.OnDeviceLost();
     
     // Release all browser View resources (2D overlays)
     for (auto& [id, instance] : browsers_) 

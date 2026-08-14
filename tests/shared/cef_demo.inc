@@ -26,6 +26,7 @@
 #define CEF_DEMO_OVERLAY_ID             9101
 #define CEF_DEMO_WORLD2D_ID             9102
 #define CEF_DEMO_WORLD3D_ID             9103
+#define CEF_DEMO_CAMERA_ID              9104
 
 #define CEF_DEMO_WORLD3D_OBJECT_MODEL   14772
 #define CEF_DEMO_WORLD3D_TEXTURE_NAME   "CJ_TV_SCREEN"
@@ -37,6 +38,7 @@
 #define CEF_DEMO_URL_WORLD3D            "http://cef/cef_demo/world3d.html"
 #define CEF_DEMO_URL_EVENTS             "http://cef/cef_demo/events.html"
 #define CEF_DEMO_URL_INPUT              "http://cef/cef_demo/input.html"
+#define CEF_DEMO_URL_CAMERA             "http://cef/cef_demo/camera.html"
 #define CEF_DEMO_URL_RED                "http://cef/cef_demo/red.html"
 #define CEF_DEMO_URL_BLUE               "http://cef/cef_demo/blue.html"
 #define CEF_DEMO_URL_EMPTY              "http://cef/cef_demo/empty.html"
@@ -186,6 +188,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
         CEF_EnableDevTools(playerid, CEF_DEMO_OVERLAY_ID, true);
         CEF_EnableDevTools(playerid, CEF_DEMO_WORLD2D_ID, true);
         CEF_EnableDevTools(playerid, CEF_DEMO_WORLD3D_ID, true);
+        CEF_EnableDevTools(playerid, CEF_DEMO_CAMERA_ID, true);
         SendClientMessage(playerid, COLOR_OK, "[CEF Demo] DevTools enabled for demo browsers.");
         return 1;
     }
@@ -292,6 +295,28 @@ public OnPlayerCommandText(playerid, cmdtext[])
         CEF_DestroyBrowser(playerid, CEF_DEMO_OVERLAY_ID);
         SetTimerEx("CefDemo_RecreateOverlay", 500, false, "i", playerid);
         SendClientMessage(playerid, COLOR_OK, "[CEF Demo] Overlay2D recreate requested.");
+        return 1;
+    }
+
+    if (!strcmp(cmdtext, "/camera", true))
+    {
+        CEF_CreateBrowser(
+            playerid,
+            CEF_DEMO_CAMERA_ID,
+            CEF_DEMO_URL_CAMERA,
+            false,
+            false,
+            0.0,
+            0.0
+        );
+        SendClientMessage(playerid, COLOR_OK, "[CEF Demo] Game camera overlay created.");
+        return 1;
+    }
+
+    if (!strcmp(cmdtext, "/cameradestroy", true))
+    {
+        CEF_DestroyBrowser(playerid, CEF_DEMO_CAMERA_ID);
+        SendClientMessage(playerid, COLOR_OK, "[CEF Demo] Game camera overlay destroyed.");
         return 1;
     }
 
@@ -718,6 +743,7 @@ static CefDemo_SendHelp(playerid)
     SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] Main: /cefhelp /cefstatus /cefdevtools /jsnotify /jsstats");
     SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] Overlay2D: /overlay /overlayhide /overlayshow /overlayred /overlayblue /overlayempty /overlayanim");
     SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] Overlay2D: /overlayevents /overlayinput /overlayreload /overlaydestroy /overlayrecreate");
+    SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] Screen capture: /camera /cameradestroy");
     SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] World2D: /world2d /world2dmove /world2dhide /world2dshow /world2dred /world2dblue /world2dempty /world2danim");
     SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] World3D: /world3d /world3dmove /world3dattach /world3ddetach /world3dhide /world3dshow /world3dred /world3dblue /world3dempty /world3danim");
     SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] Stress: /cefstress /cefstressred /cefstressblue /cefstressempty /cefstressanim /cefstresshide /cefstressshow /cefstressdestroy");
@@ -886,6 +912,7 @@ static CefDemo_DestroyAll(playerid)
 {
     CEF_DestroyBrowser(playerid, CEF_DEMO_OVERLAY_ID);
     CEF_DestroyBrowser(playerid, CEF_DEMO_WORLD2D_ID);
+    CEF_DestroyBrowser(playerid, CEF_DEMO_CAMERA_ID);
     CefDemo_DestroyWorld3D(playerid);
     SendClientMessage(playerid, COLOR_OK, "[CEF Demo] Stress setup destroyed.");
     return 1;
