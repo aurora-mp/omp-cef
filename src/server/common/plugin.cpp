@@ -13,6 +13,7 @@
 namespace
 {
     constexpr uint16_t DefaultListenPort = 7779;
+    constexpr int MaxHandlersPerPoll = 512;
 }
 
 CefPlugin::CefPlugin()
@@ -68,10 +69,7 @@ void CefPlugin::Initialize(std::unique_ptr<IPlatformBridge> bridge, uint16_t lis
 		network_server_->Start();
 
 		io_context_.restart();
-
-		network_thread_ = std::thread([this]() {
-			io_context_.run();
-		});
+		work_guard_.emplace(asio::make_work_guard(io_context_));
 
 		running_ = true;
 
@@ -100,6 +98,9 @@ void CefPlugin::Shutdown()
 		network_thread_.join();
 	}
 
+    work_guard_.reset();
+    io_context_.stop();
+
 	// ASIO owns NetworkServer and SecurityManager callbacks. Destroy/cancel
 	// them only after the io_context thread can no longer be executing one.
 	if (network_server_) {
@@ -123,6 +124,23 @@ void CefPlugin::Shutdown()
 
     logging::SetLogger(nullptr);
     bridge_.reset();
+}
+
+void CefPlugin::Poll()
+{
+	if (!running_)
+		return;
+
+	try
+	{
+		for (int i = 0; i < MaxHandlersPerPoll && io_context_.poll_one() > 0; ++i)
+		{
+		}
+	}
+	catch (const std::exception& e)
+	{
+		LOG_ERROR("Network poll failed: %s", e.what());
+	}
 }
 
 void CefPlugin::OnPlayerConnect(int playerid)

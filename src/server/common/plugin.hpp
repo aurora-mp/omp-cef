@@ -4,6 +4,7 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <mutex>
 #include <shared/packet.hpp>
 #include <unordered_map>
@@ -52,6 +53,7 @@ public:
 
 	void Initialize(std::unique_ptr<IPlatformBridge> bridge, uint16_t listen_port, const CefPluginOptions& options);
 	void Shutdown();
+	void Poll();
 
 	void OnPlayerConnect(int playerid);
 	void OnPlayerClientInit(int playerid);
@@ -119,7 +121,7 @@ private:
 	asio::io_context io_context_;
 	asio::steady_timer transfer_timer_{ io_context_ };
 	std::unique_ptr<NetworkServer> network_server_;
-	std::thread network_thread_;
+	std::optional<asio::executor_work_guard<asio::io_context::executor_type>> work_guard_;
 	std::atomic<bool> running_{ false };
 	std::mutex main_thread_tasks_mutex_;
 	std::deque<std::function<void()>> main_thread_tasks_;
