@@ -58,7 +58,6 @@ void CefOmpComponent::onLoad(ICore* core)
     core_ = core;
 	core_->getEventDispatcher().addEventHandler(this);
     core_->getPlayers().getPlayerConnectDispatcher().addEventHandler(this);
-    core_->getEventDispatcher().addEventHandler(this);
     setAmxLookups(core_);
 }
 
@@ -219,12 +218,5 @@ CefOmpComponent::~CefOmpComponent()
     {
 		core_->getEventDispatcher().removeEventHandler(this);
         core_->getPlayers().getPlayerConnectDispatcher().removeEventHandler(this);
-        core_->getEventDispatcher().removeEventHandler(this);
     }
-}
-
-void CefOmpComponent::onTick(Microseconds elapsed, TimePoint now)
-{
-    if (plugin_)
-        plugin_->Poll();
 }
