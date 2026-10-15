@@ -1,4 +1,26 @@
 
+## [1.4.0](https://github.com/aurora-mp/omp-cef/compare/v1.3.0..v1.4.0) (2026-10-14)
+
+### ✨ Features
+
+- *(client)* Expose game screen capture to CEF - ([7847504](https://github.com/aurora-mp/omp-cef/commit/7847504639ff2dbfce58dc237e635d83ee07ad43))
+- *(client)* Expose game screen capture to CEF - ([15cec9f](https://github.com/aurora-mp/omp-cef/commit/15cec9fec15267f2f61094fcd6e27832a8dfbd22))
+- Add browser layer control - ([ddd18d0](https://github.com/aurora-mp/omp-cef/commit/ddd18d027ac92f699c98c4f1eb0a195dffda49bd))
+- Add native browser input support and improve server thread safety - ([1b1457f](https://github.com/aurora-mp/omp-cef/commit/1b1457fc57e7b928439ec30db4b7223abd2b6937))
+- Add browser layer control - ([c921da6](https://github.com/aurora-mp/omp-cef/commit/c921da698b03af5646bed9d19740b3b7198010a6))
+
+### 🐛 Bug Fixes
+
+- *(client)* Restore static CEF textures after Alt+Tab - ([6a7412a](https://github.com/aurora-mp/omp-cef/commit/6a7412ad0caf6236e5a3058515927fb1f3b131c8))
+- *(client)* Restore static CEF textures after Alt+Tab - ([6a7412a](https://github.com/aurora-mp/omp-cef/commit/6a7412ad0caf6236e5a3058515927fb1f3b131c8))
+
+## New Contributors ❤️
+
+* @Masvidal99 made their first contribution
+* @xbruno1000x made their first contribution
+
+
+
 ## [1.3.0](https://github.com/aurora-mp/omp-cef/compare/v1.2.0..v1.3.0) (2026-06-19)
 
 ### 🧹 Chore
