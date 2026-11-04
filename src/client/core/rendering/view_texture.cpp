@@ -196,17 +196,46 @@ void ViewTexture::Draw(int x, int y)
     if (!device_ || !texture_) 
         return;
 
-    device_->SetTexture(0, texture_);
+    // Draw the browser quad with fixed-function state independent of game effects.
+    device_->SetVertexShader(nullptr);
+    device_->SetPixelShader(nullptr);
+    device_->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
     device_->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+    device_->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
     device_->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
     device_->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+    device_->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
 
+    device_->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+    device_->SetRenderState(D3DRS_FOGENABLE, FALSE);
     device_->SetRenderState(D3DRS_LIGHTING, FALSE);
     device_->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
+    device_->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+    device_->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+    device_->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
+    device_->SetRenderState(D3DRS_CLIPPLANEENABLE, 0);
     device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+    device_->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED |
+        D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
+    device_->SetRenderState(D3DRS_SRGBWRITEENABLE, FALSE);
+    device_->SetRenderState(D3DRS_WRAP0, 0);
 
+    device_->SetTexture(0, texture_);
+    device_->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+    device_->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    device_->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+    device_->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+    device_->SetTextureStageState(0, D3DTSS_RESULTARG, D3DTA_CURRENT);
+    device_->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
+    device_->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+    device_->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+
+    device_->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+    device_->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
     device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
     device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+    device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+    device_->SetSamplerState(0, D3DSAMP_SRGBTEXTURE, FALSE);
 
     const float w = static_cast<float>(width_);
     const float h = static_cast<float>(height_);
