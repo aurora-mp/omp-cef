@@ -1532,8 +1532,6 @@ bool BrowserManager::RenderAll()
         pending_paint.dirty_rects.clear();
     }
 
-    bool any_visible = false;
-
     struct RenderEntry
     {
         BrowserInstance* browser;
@@ -1547,12 +1545,30 @@ bool BrowserManager::RenderAll()
             render_order.push_back({browser.get(), browser->layer.load(std::memory_order_relaxed)});
     }
 
+    if (render_order.empty())
+        return false;
+
     // Snapshot layers before sorting so concurrent updates cannot change the comparator.
     // Equal layers use browser IDs, making draw order independent of unordered_map layout.
     std::sort(render_order.begin(), render_order.end(), [](const RenderEntry& a, const RenderEntry& b) {
         return a.layer != b.layer ? a.layer < b.layer : a.browser->id < b.browser->id;
     });
 
+    // This pass runs just before Present, after the game's scene has ended.
+    auto* device = RenderManager::Instance().GetDevice();
+    if (!device || FAILED(device->BeginScene()))
+        return false;
+
+    // Save the game's state once for all browser draws, including stream 0
+    // which DrawPrimitiveUP clears.
+    IDirect3DStateBlock9* game_state = nullptr;
+    if (FAILED(device->CreateStateBlock(D3DSBT_ALL, &game_state)))
+    {
+        device->EndScene();
+        return false;
+    }
+
+    bool any_visible = false;
     for (const auto& entry : render_order)
     {
         auto* browser = entry.browser;
@@ -1595,6 +1611,10 @@ bool BrowserManager::RenderAll()
             continue;
         }
     }
+
+    game_state->Apply();
+    game_state->Release();
+    device->EndScene();
 
     return any_visible;
 }
