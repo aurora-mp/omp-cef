@@ -2,6 +2,7 @@ EXPORTS
 	Supports
 	Load
 	Unload
+	ProcessTick
 	AmxLoad
 	AmxUnload
 	OnPlayerConnect
