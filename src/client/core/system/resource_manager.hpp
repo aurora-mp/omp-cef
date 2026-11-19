@@ -80,8 +80,22 @@ private:
 	{
 		uint32_t totalChunks = 0;
 		uint32_t receivedChunks = 0;
+		size_t receivedBytes = 0;
 		std::vector<std::vector<uint8_t>> chunks;
 	};
+
+	// A file the client explicitly requested, with the metadata announced by the manifest.
+	// FileData packets are only accepted for these entries.
+	struct ExpectedFile
+	{
+		std::string resourceName;
+		std::string relativePath;
+		std::string hash;
+		size_t size = 0;
+		std::filesystem::path savePath;
+	};
+
+	static std::string MakeFileKey(const std::string& resourceName, const std::string& relativePath);
 
 private:
 	Gta& gta_;
@@ -104,6 +118,7 @@ private:
 	std::mutex download_mutex_;
 	std::vector<FileProgressData> download_progress_;
 	std::map<std::string, FileAssemblyData> assembling_files_;
+	std::map<std::string, ExpectedFile> expected_files_;
 
 	std::chrono::steady_clock::time_point last_packet_time_;
 };

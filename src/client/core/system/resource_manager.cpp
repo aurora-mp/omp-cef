@@ -1,7 +1,9 @@
 ﻿#include "resource_manager.hpp"
 
+#include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <string_view>
 
 #include <miniz.h>
 
@@ -12,7 +14,124 @@
 #include "shared/utils.hpp"
 #include "ui/download_dialog.hpp"
 
+namespace
+{
+	// Upper bound for a single resource pak (the game is a 32-bit process).
+	constexpr size_t kMaxResourceFileSize = 512ull * 1024 * 1024;
+
+	// The server currently sends 1200-byte chunks. This value only bounds the
+	// chunk table so a hostile totalChunks cannot force a huge allocation.
+	constexpr size_t kMinChunkBytes = 64;
+
+	constexpr size_t kMaxResourcePathLength = 200;
+
+	bool IsReservedDosName(const std::string& component)
+	{
+		std::string stem = component.substr(0, component.find('.'));
+		for (auto& c : stem)
+			c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+
+		if (stem == "CON" || stem == "PRN" || stem == "AUX" || stem == "NUL")
+			return true;
+
+		if (stem.size() == 4 && (stem.rfind("COM", 0) == 0 || stem.rfind("LPT", 0) == 0) &&
+			stem[3] >= '1' && stem[3] <= '9')
+			return true;
+
+		return false;
+	}
+
+	bool IsSafePathComponent(const std::string& component)
+	{
+		if (component.empty() || component == "." || component == "..")
+			return false;
+
+		// Windows silently strips trailing dots and spaces.
+		if (component.back() == '.' || component.back() == ' ')
+			return false;
+
+		for (const char ch : component)
+		{
+			const auto c = static_cast<unsigned char>(ch);
+			if (c < 0x20 || c == 0x7F)
+				return false;
+
+			switch (ch)
+			{
+				case '<': case '>': case ':': case '"': case '|': case '?': case '*':
+					return false;
+				default:
+					break;
+			}
+		}
+
+		return !IsReservedDosName(component);
+	}
+
+	// Paths in the manifest and in FileData packets come from the server, which the
+	// client does not trust. Only accept plain relative paths to a ".pak" file.
+	bool IsSafeResourcePath(const std::string& path)
+	{
+		if (path.empty() || path.size() > kMaxResourcePathLength)
+			return false;
+
+		if (path.front() == '/' || path.front() == '\\')
+			return false;
+
+		size_t start = 0;
+		while (true)
+		{
+			const size_t end = path.find_first_of("/\\", start);
+			if (!IsSafePathComponent(path.substr(start, end == std::string::npos ? std::string::npos : end - start)))
+				return false;
+
+			if (end == std::string::npos)
+				break;
+
+			start = end + 1;
+		}
+
+		constexpr std::string_view extension = ".pak";
+		if (path.size() <= extension.size())
+			return false;
+
+		for (size_t i = 0; i < extension.size(); ++i)
+		{
+			const char c = static_cast<char>(std::tolower(static_cast<unsigned char>(path[path.size() - extension.size() + i])));
+			if (c != extension[i])
+				return false;
+		}
+
+		return true;
+	}
+
+	// Resolves relativePath under baseDir and checks that the result stays inside it.
+	bool ResolveCachePath(const std::string& baseDir, const std::string& relativePath, std::filesystem::path& out)
+	{
+		if (baseDir.empty() || !IsSafeResourcePath(relativePath))
+			return false;
+
+		std::filesystem::path base = std::filesystem::path(baseDir).lexically_normal();
+		if (!base.has_filename())
+			base = base.parent_path();
+
+		const std::filesystem::path candidate = (base / std::filesystem::path(relativePath)).lexically_normal();
+		const std::filesystem::path relative = candidate.lexically_relative(base);
+
+		if (relative.empty() || relative.is_absolute() || *relative.begin() == "..")
+			return false;
+
+		out = candidate;
+		return true;
+	}
+}
+
 ResourceManager::ResourceManager(Gta& gta) : gta_(gta) {}
+
+std::string ResourceManager::MakeFileKey(const std::string& resourceName, const std::string& relativePath)
+{
+	return resourceName + "/" + relativePath;
+}
 
 
 void ResourceManager::SetNetworkManager(NetworkManager& net)
@@ -57,6 +176,7 @@ void ResourceManager::OnDisconnect()
 	server_manifest_ = nlohmann::json{};
 	download_progress_.clear();
 	assembling_files_.clear();
+	expected_files_.clear();
 }
 
 void ResourceManager::SetMasterKey(const std::vector<uint8_t>& key)
@@ -111,38 +231,74 @@ void ResourceManager::TriggerDownload()
 
 	std::vector<std::pair<std::string, std::string>> files_to_request;
 	std::vector<FileProgressData> progress_list;
+	std::map<std::string, ExpectedFile> expected_files;
 
-	for (auto& [resourceName, files] : server_manifest_.items()) {
-        for (auto& file_entry : files) {
-            std::string path = file_entry["path"];
-            std::string server_hash = file_entry["hash"];
-            size_t server_size = file_entry["size"];
-            std::string local_path = server_cache_path_ + path;
+	const nlohmann::json manifest = server_manifest_.is_object() ? server_manifest_ : nlohmann::json::object();
 
-            bool file_exists = std::filesystem::exists(local_path);
-            if (file_exists) {
-                size_t actual_size = std::filesystem::file_size(local_path);
-                std::string local_hash = CalculateSHA256(local_path);
+	for (const auto& [resourceName, files] : manifest.items()) {
+		if (!files.is_array()) {
+			LOG_ERROR("[ResourceManager] Ignoring resource '{}': invalid manifest entry", resourceName);
+			continue;
+		}
 
-                if (local_hash == server_hash) {
+		for (const auto& file_entry : files) {
+			if (!file_entry.is_object() ||
+				!file_entry.contains("path") || !file_entry["path"].is_string() ||
+				!file_entry.contains("hash") || !file_entry["hash"].is_string() ||
+				!file_entry.contains("size") || !file_entry["size"].is_number_unsigned())
+			{
+				LOG_ERROR("[ResourceManager] Ignoring malformed file entry in resource '{}'", resourceName);
+				continue;
+			}
 
-                    if (LoadPakIntoVFS(resourceName, local_path)) {
-                        continue;
-                    }
-                }
-            }
+			const std::string path = file_entry["path"].get<std::string>();
+			const std::string server_hash = file_entry["hash"].get<std::string>();
+			const uint64_t server_size = file_entry["size"].get<uint64_t>();
 
-            files_to_request.push_back({ resourceName, path });
-            FileProgressData progress;
-            progress.fileName = path;
-            progress.fileHash = server_hash;
-            progress.totalSize = server_size;
-            progress.isComplete = false;
-            progress_list.push_back(std::move(progress));
-        }
-    }
+			std::filesystem::path local_path;
+			if (!ResolveCachePath(server_cache_path_, path, local_path)) {
+				LOG_ERROR("[ResourceManager] Refusing unsafe resource path '{}' in resource '{}'", path, resourceName);
+				continue;
+			}
 
-	download_progress_ = std::move(progress_list);
+			if (server_size == 0 || server_size > kMaxResourceFileSize) {
+				LOG_ERROR("[ResourceManager] Refusing resource file '{}' with invalid size {}", path, server_size);
+				continue;
+			}
+
+			std::error_code ec;
+			if (std::filesystem::is_regular_file(local_path, ec)) {
+				const std::string local_hash = CalculateSHA256(local_path.string());
+
+				if (local_hash == server_hash && LoadPakIntoVFS(resourceName, local_path.string())) {
+					continue;
+				}
+			}
+
+			ExpectedFile expected;
+			expected.resourceName = resourceName;
+			expected.relativePath = path;
+			expected.hash = server_hash;
+			expected.size = static_cast<size_t>(server_size);
+			expected.savePath = local_path;
+			expected_files[MakeFileKey(resourceName, path)] = std::move(expected);
+
+			files_to_request.push_back({ resourceName, path });
+			FileProgressData progress;
+			progress.fileName = path;
+			progress.fileHash = server_hash;
+			progress.totalSize = static_cast<size_t>(server_size);
+			progress.isComplete = false;
+			progress_list.push_back(std::move(progress));
+		}
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(download_mutex_);
+		download_progress_ = std::move(progress_list);
+		expected_files_ = std::move(expected_files);
+		assembling_files_.clear();
+	}
 
 	if (!download_progress_.empty()) {
 		state_ = DownloadState::DOWNLOADING;
@@ -177,7 +333,25 @@ void ResourceManager::OnFileData(const FileDataPacket& packet)
 
 	std::lock_guard<std::mutex> lock(download_mutex_);
 
-	std::string fileKey = packet.resourceName + "/" + packet.relativePath;
+	const std::string fileKey = MakeFileKey(packet.resourceName, packet.relativePath);
+
+	// Only accept data for files this client requested from the manifest.
+	// Everything else (unknown resource, other path, traversal attempts) is dropped.
+	const auto expected_it = expected_files_.find(fileKey);
+	if (expected_it == expected_files_.end())
+	{
+		LOG_ERROR("[ResourceManager] Dropping FileData for unrequested file '{}'", fileKey);
+		return;
+	}
+
+	const ExpectedFile& expected = expected_it->second;
+
+	const size_t max_chunks = expected.size / kMinChunkBytes + 1;
+	if (packet.totalChunks == 0 || packet.totalChunks > max_chunks || packet.data.empty())
+	{
+		LOG_ERROR("[ResourceManager] Invalid chunk layout for '{}' (totalChunks={}, size={})", fileKey, packet.totalChunks, packet.data.size());
+		return;
+	}
 
 	auto& assembly = assembling_files_[fileKey];
 
@@ -185,8 +359,6 @@ void ResourceManager::OnFileData(const FileDataPacket& packet)
 	{
 		assembly.totalChunks = packet.totalChunks;
 		assembly.chunks.resize(packet.totalChunks);
-
-		//LOG_INFO("[Download] Starting assembly for '{}' ({} chunks)", packet.relativePath, packet.totalChunks);
 	}
 
 	if (packet.totalChunks != assembly.totalChunks)
@@ -203,11 +375,19 @@ void ResourceManager::OnFileData(const FileDataPacket& packet)
 
 	if (assembly.chunks[packet.chunkIndex].empty())
 	{
+		if (packet.data.size() > expected.size - assembly.receivedBytes)
+		{
+			LOG_ERROR("[ResourceManager] '{}' exceeds its announced size ({} bytes), aborting this file", fileKey, expected.size);
+			assembling_files_.erase(fileKey);
+			return;
+		}
+
 		assembly.chunks[packet.chunkIndex] = packet.data;
 		assembly.receivedChunks++;
+		assembly.receivedBytes += packet.data.size();
 
 		for (size_t i = 0; i < download_progress_.size(); ++i) {
-			if (download_progress_[i].fileHash == packet.fileHash) {
+			if (download_progress_[i].fileHash == expected.hash) {
 				auto& progress = download_progress_[i];
 				download_progress_[i].bytesReceived += packet.data.size();
 
@@ -236,10 +416,12 @@ void ResourceManager::OnFileData(const FileDataPacket& packet)
 			completeFile.insert(completeFile.end(), chunk.begin(), chunk.end());
 		}
 
+		// Verify against the manifest, not against the hash carried by the packet itself.
 		std::string receivedHash = CalculateSHA256FromData(completeFile);
-		if (receivedHash != packet.fileHash)
+		if (completeFile.size() != expected.size || receivedHash != expected.hash)
 		{
-			LOG_ERROR("[ResourceManager] Hash mismatch for '{}': expected {}, got {}", packet.relativePath, packet.fileHash, receivedHash);
+			LOG_ERROR("[ResourceManager] Integrity check failed for '{}': expected {} ({} bytes), got {} ({} bytes)",
+				packet.relativePath, expected.hash, expected.size, receivedHash, completeFile.size());
 
 			assembling_files_.erase(fileKey);
 
@@ -253,11 +435,19 @@ void ResourceManager::OnFileData(const FileDataPacket& packet)
 			return;
 		}
 
-		std::string savePath = server_cache_path_ + "/" + packet.relativePath;
-		std::filesystem::create_directories(std::filesystem::path(savePath).parent_path());
+		// savePath was resolved and checked to stay inside the server cache when the file was requested.
+		const std::string savePath = expected.savePath.string();
 
 		try {
-			std::ofstream outFile(savePath, std::ios::binary);
+			std::filesystem::create_directories(expected.savePath.parent_path());
+
+			std::ofstream outFile(expected.savePath, std::ios::binary | std::ios::trunc);
+			if (!outFile)
+			{
+				LOG_ERROR("[ResourceManager] Cannot open '{}' for writing", savePath);
+				assembling_files_.erase(fileKey);
+				return;
+			}
 			outFile.write(reinterpret_cast<const char*>(completeFile.data()), completeFile.size());
 			outFile.close();
 
