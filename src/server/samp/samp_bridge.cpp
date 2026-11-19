@@ -227,7 +227,9 @@ void SampPlatformBridge::HideResourceDownloadDialog(int playerid)
 std::string SampPlatformBridge::GetPlayerAddressIp(int playerid)
 {
     char ip[64] = {};
-    if (sampgdk_GetPlayerIp(playerid, ip, sizeof(ip)) == 0)
+
+    // GetPlayerIp returns true on success (sampgdk declares it as bool).
+    if (sampgdk_GetPlayerIp(playerid, ip, sizeof(ip)) && ip[0] != '\0')
         return std::string(ip);
 
     return {};

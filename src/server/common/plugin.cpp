@@ -347,13 +347,19 @@ void CefPlugin::HandleRequestJoin(const asio::ip::udp::endpoint& from, const Req
 
 	const std::string official_ip = session->official_ip;
 
-    LOG_INFO("RequestJoin pid=%d from=%s:%d official=%s", playerid, from_ip.c_str(), from_port, official_ip.c_str());
+    if (official_ip.empty())
+    {
+        LOG_WARN("RequestJoin dropped: unknown game IP for pid=%d (from %s:%d)", playerid, from_ip.c_str(), from_port);
+        return;
+    }
 
-    if (!official_ip.empty() && official_ip != from_ip)
+    if (official_ip != from_ip)
     {
         LOG_WARN("RequestJoin dropped: IP mismatch (pid=%d, official=%s, from=%s)", playerid, official_ip.c_str(), from_ip.c_str());
         return;
     }
+
+    LOG_INFO("RequestJoin pid=%d from=%s:%d", playerid, from_ip.c_str(), from_port);
 
     const uint32_t clientVersion = join_packet.client_version;
     const uint32_t serverVersion = PLUGIN_VERSION_U32;
