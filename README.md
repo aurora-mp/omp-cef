@@ -43,7 +43,7 @@ https://github.com/aurora-mp/omp-cef/wiki
 ## Current CEF version
 
 ```txt
-148.0.10+g7ee53f5+chromium-148.0.7778.218
+158.0.3+g8c29be2+chromium-158.0.8127.18
 ```
 
 ## Repository layout
