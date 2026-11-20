@@ -1,5 +1,5 @@
 if(NOT DEFINED CEF_VERSION)
-	set(CEF_VERSION "148.0.10+g7ee53f5+chromium-148.0.7778.218")
+	set(CEF_VERSION "158.0.3+g8c29be2+chromium-158.0.8127.18")
 	message(STATUS "CEF_VERSION is not defined, using default version: ${CEF_VERSION}")
 endif()
 
