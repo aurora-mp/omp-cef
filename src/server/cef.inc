@@ -249,6 +249,12 @@ native CEF_DestroyBrowser(playerid, browserid);
  * Registers an event that can be emitted from CEF (JavaScript) to Pawn.
  * This function defines the expected argument types for the event.
  *
+ * The callback always receives playerid and browserid first, followed by the
+ * registered arguments in the same order:
+ *
+ *     CEF_RegisterEvent("login:submit", "OnLoginSubmit", Argument_String, Argument_String);
+ *     forward OnLoginSubmit(playerid, browserid, const username[], const password[]);
+ *
  * @param eventName         The name of the event to register.
  * @param callback          The name of the event callback.
  * @param ...               A variadic list of argument types (e.g., Argument_String, Argument_Integer ...).
