@@ -1,4 +1,49 @@
 
+## [1.4.1](https://github.com/aurora-mp/omp-cef/compare/v1.4.0..v1.4.1) (2026-11-23)
+
+### 📖 Documentation
+
+- *(server)* Document the registered event callback signature - ([4ad0f87](https://github.com/aurora-mp/omp-cef/commit/4ad0f877cad6ed73243bb154c4439a766a64ecb7))
+
+### 🧹 Chore
+
+- *(client)* Update CEF to 158.0.3 (Chromium 158.0.8127.18) - ([87fc74e](https://github.com/aurora-mp/omp-cef/commit/87fc74ee98e72f0b7d83dffdc3456bb5ea9279fe))
+- *(client)* Update CEF to 158.0.3 (Chromium 158.0.8127.18) - ([87fc74e](https://github.com/aurora-mp/omp-cef/commit/87fc74ee98e72f0b7d83dffdc3456bb5ea9279fe))
+- Bump version to 1.4.1 - ([6192818](https://github.com/aurora-mp/omp-cef/commit/619281813aec2a93de19af83f1b74d9164c9e271))
+
+### 🐛 Bug Fixes
+
+- *(client)* Drop the unused directxsdk dependency - ([001baef](https://github.com/aurora-mp/omp-cef/commit/001baefb6d809a1ce8905c9e12fe44773e46a984))
+- *(client)* Report failed browser creation to the server - ([4f43edf](https://github.com/aurora-mp/omp-cef/commit/4f43edf26dfb69e5da1b242a104d6e4a5a31a03d))
+- *(client)* Report failed browser creation to the server - ([4f43edf](https://github.com/aurora-mp/omp-cef/commit/4f43edf26dfb69e5da1b242a104d6e4a5a31a03d))
+- *(client)* Report failed browser creation to the server - ([4f43edf](https://github.com/aurora-mp/omp-cef/commit/4f43edf26dfb69e5da1b242a104d6e4a5a31a03d))
+- *(client)* Isolate CEF overlay rendering state - ([2fceeb5](https://github.com/aurora-mp/omp-cef/commit/2fceeb5e9d0269175c371e351bde6c013f937f6f))
+- *(client)* Synchronize browser state between CEF and game threads - ([d7ecab1](https://github.com/aurora-mp/omp-cef/commit/d7ecab1cfb19cf10d2d5b527a991897880c65026))
+- *(client)* Synchronize browser state between CEF and game threads - ([d7ecab1](https://github.com/aurora-mp/omp-cef/commit/d7ecab1cfb19cf10d2d5b527a991897880c65026))
+- *(client)* Synchronize browser state between CEF and game threads - ([d7ecab1](https://github.com/aurora-mp/omp-cef/commit/d7ecab1cfb19cf10d2d5b527a991897880c65026))
+- *(client)* Synchronize browser state between CEF and game threads - ([d7ecab1](https://github.com/aurora-mp/omp-cef/commit/d7ecab1cfb19cf10d2d5b527a991897880c65026))
+- *(client)* Handle server packets on the game thread - ([8aa495f](https://github.com/aurora-mp/omp-cef/commit/8aa495fd3f81323ecfd22dd29a27cf3db57456ee))
+- *(client)* Handle server packets on the game thread - ([8aa495f](https://github.com/aurora-mp/omp-cef/commit/8aa495fd3f81323ecfd22dd29a27cf3db57456ee))
+- *(client)* Serialize KCP access and socket sends - ([ba9dfc4](https://github.com/aurora-mp/omp-cef/commit/ba9dfc48998aecc54c86a6e391a35639d04a1a7d))
+- *(client)* Serialize KCP access and socket sends - ([ba9dfc4](https://github.com/aurora-mp/omp-cef/commit/ba9dfc48998aecc54c86a6e391a35639d04a1a7d))
+- *(client)* Serialize KCP access and socket sends - ([ba9dfc4](https://github.com/aurora-mp/omp-cef/commit/ba9dfc48998aecc54c86a6e391a35639d04a1a7d))
+- *(client)* Only write requested resource files inside the cache - ([b0fb7d9](https://github.com/aurora-mp/omp-cef/commit/b0fb7d9bf082ed2bcdb19166be86636755140bd5))
+- *(client)* Only write requested resource files inside the cache - ([b0fb7d9](https://github.com/aurora-mp/omp-cef/commit/b0fb7d9bf082ed2bcdb19166be86636755140bd5))
+- *(samp)* Drain the main-thread task queue from ProcessTick - ([e018fc1](https://github.com/aurora-mp/omp-cef/commit/e018fc16680d900b02ca9a15b30d843df96398fa))
+- *(samp)* Drain the main-thread task queue from ProcessTick - ([e018fc1](https://github.com/aurora-mp/omp-cef/commit/e018fc16680d900b02ca9a15b30d843df96398fa))
+- *(samp)* Drain the main-thread task queue from ProcessTick - ([e018fc1](https://github.com/aurora-mp/omp-cef/commit/e018fc16680d900b02ca9a15b30d843df96398fa))
+- *(server)* Enforce the game IP check on RequestJoin - ([cac2932](https://github.com/aurora-mp/omp-cef/commit/cac293234e8873d90430824118ebaae6d0753319))
+- *(server)* Enforce the game IP check on RequestJoin - ([cac2932](https://github.com/aurora-mp/omp-cef/commit/cac293234e8873d90430824118ebaae6d0753319))
+- *(server)* Enforce the game IP check on RequestJoin - ([cac2932](https://github.com/aurora-mp/omp-cef/commit/cac293234e8873d90430824118ebaae6d0753319))
+- *(server)* Enforce the game IP check on RequestJoin - ([cac2932](https://github.com/aurora-mp/omp-cef/commit/cac293234e8873d90430824118ebaae6d0753319))
+
+### 🤖 CI
+
+- *(client)* Pin CMake 4.4.4 for the client build (tmp) - ([0dc2c22](https://github.com/aurora-mp/omp-cef/commit/0dc2c220143524029f15d53bf5753722cfe24a54))
+
+
+
+
 ## [1.4.0](https://github.com/aurora-mp/omp-cef/compare/v1.3.0..v1.4.0) (2026-10-14)
 
 ### ✨ Features
