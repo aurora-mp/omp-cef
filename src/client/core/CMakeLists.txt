@@ -56,26 +56,12 @@ target_include_directories(${PROJECT_NAME}
         ${CMAKE_SOURCE_DIR}/deps/kcp
 )
 
-# DirectX
-if (DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
-    target_include_directories(${PROJECT_NAME}
-        PRIVATE
-            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include/directxsdk"
-    )
-
-    target_link_directories(${PROJECT_NAME}
-        PRIVATE
-            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
-    )
-endif()
-
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         user32
         Version
         ws2_32
         d3d9
-        d3dx9
 
         Shared
         sampapi

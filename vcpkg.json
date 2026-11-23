@@ -12,8 +12,7 @@
         "nlohmann-json",
         "picosha2",
         { "name": "minhook", "platform": "windows & !uwp & !arm" },
-        { "name": "openal-soft", "platform": "!uwp" },
-        { "name": "directxsdk", "platform": "windows & !uwp & !xbox & !arm" }
+        { "name": "openal-soft", "platform": "!uwp" }
       ]
     },
     "server": {
