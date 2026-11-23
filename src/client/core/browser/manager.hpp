@@ -229,6 +229,8 @@ private:
 
     CEntity* GetEntityFromObjectId(int objectId);
     void RetireBrowserLocked(int id);
+    void LaunchBrowserLocked(int id, const std::string& url);
+    void ReportBrowserCreateFailure(int id, BrowserCreateStatus status, const std::string& reason);
     void ReleaseRetiredResources();
     void ClearPendingPaint(int id);
     void RestoreBrowserTextures();

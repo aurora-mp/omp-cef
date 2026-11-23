@@ -589,6 +589,7 @@ void BrowserManager::CreateBrowser(
         {
             LOG_ERROR("[CEF] CreateBrowser failed: Browser with ID {} already exists.", id);
             LOG_ERROR("[CEF] Existing browser mode: {}", (int)it->second->mode);
+            ReportBrowserCreateFailure(id, BrowserCreateStatus::Error_IdAlreadyInUse, "ID already in use");
             return;
         }
     }
@@ -610,6 +611,7 @@ void BrowserManager::CreateWorldBrowser(
         {
             LOG_ERROR("[CEF] CreateWorldBrowser failed: Browser with ID {} already exists.", id);
             LOG_ERROR("[CEF] Existing browser mode: {}", (int)it->second->mode);
+            ReportBrowserCreateFailure(id, BrowserCreateStatus::Error_IdAlreadyInUse, "ID already in use");
             return;
         }
     }
@@ -633,6 +635,7 @@ void BrowserManager::CreateWorld2DBrowser(
         {
             LOG_ERROR("[CEF] CreateWorld2DBrowser failed: Browser with ID {} already exists.", id);
             LOG_ERROR("[CEF] Existing browser mode: {}", (int)it->second->mode);
+            ReportBrowserCreateFailure(id, BrowserCreateStatus::Error_IdAlreadyInUse, "ID already in use");
             return;
         }
     }
@@ -662,6 +665,7 @@ void BrowserManager::CreateBrowserInternal(
     if (browsers_.count(id))
     {
         LOG_ERROR("[CEF] CreateBrowserInternal: Browser with ID {} already exists (race condition?).", id);
+        ReportBrowserCreateFailure(id, BrowserCreateStatus::Error_IdAlreadyInUse, "ID already in use");
         return;
     }
 
@@ -720,13 +724,7 @@ void BrowserManager::CreateBrowserInternal(
     if (focused)
         FocusBrowser(id, true);
 
-    CefWindowInfo windowInfo;
-    windowInfo.SetAsWindowless(gta_.GetHwnd());
-    windowInfo.external_begin_frame_enabled = true;
-    CefBrowserSettings bs;
-    ConfigureBrowserSettings(bs);
-    CefBrowserHost::CreateBrowser(
-        windowInfo, browsers_[id]->client, url, bs, nullptr, CefRequestContext::GetGlobalContext());
+    LaunchBrowserLocked(id, url);
 }
 
 void BrowserManager::CreateWorldBrowserInternal(
@@ -750,6 +748,7 @@ void BrowserManager::CreateWorldBrowserInternal(
     if (browsers_.count(id))
     {
         LOG_ERROR("[CEF] CreateWorldBrowserInternal: Browser with ID {} already exists (race condition?).", id);
+        ReportBrowserCreateFailure(id, BrowserCreateStatus::Error_IdAlreadyInUse, "ID already in use");
         return;
     }
 
@@ -781,12 +780,7 @@ void BrowserManager::CreateWorldBrowserInternal(
     audio_.EnsureStream(id);
     audio_.SetStreamMuted(id, true);
 
-    CefWindowInfo windowInfo;
-    windowInfo.SetAsWindowless(gta_.GetHwnd());
-    windowInfo.external_begin_frame_enabled = true;
-    CefBrowserSettings bs;
-    ConfigureBrowserSettings(bs);
-    CefBrowserHost::CreateBrowser(windowInfo, browsers_[id]->client, url, bs, nullptr, CefRequestContext::GetGlobalContext());
+    LaunchBrowserLocked(id, url);
 }
 
 void BrowserManager::CreateWorld2DBrowserInternal(
@@ -815,6 +809,7 @@ void BrowserManager::CreateWorld2DBrowserInternal(
     if (browsers_.count(id))
     {
         LOG_ERROR("[CEF] CreateWorld2DBrowserInternal: Browser with ID {} already exists (race condition?).", id);
+        ReportBrowserCreateFailure(id, BrowserCreateStatus::Error_IdAlreadyInUse, "ID already in use");
         return;
     }
 
@@ -848,12 +843,39 @@ void BrowserManager::CreateWorld2DBrowserInternal(
         inst->view.Create(bw, bh);
     });
 
+    LaunchBrowserLocked(id, url);
+}
+
+void BrowserManager::ReportBrowserCreateFailure(int id, BrowserCreateStatus status, const std::string& reason)
+{
+    // Without this the server never receives OnCefBrowserCreated for this call.
+    network_.SendBrowserCreateResult(id, false, static_cast<int>(status), reason);
+}
+
+void BrowserManager::LaunchBrowserLocked(int id, const std::string& url)
+{
+    // Caller holds browsers_mutex_ and has just inserted browsers_[id].
+    const auto it = browsers_.find(id);
+    if (it == browsers_.end() || !it->second)
+        return;
+
     CefWindowInfo windowInfo;
     windowInfo.SetAsWindowless(gta_.GetHwnd());
     windowInfo.external_begin_frame_enabled = true;
     CefBrowserSettings bs;
     ConfigureBrowserSettings(bs);
-    CefBrowserHost::CreateBrowser(windowInfo, browsers_[id]->client, url, bs, nullptr, CefRequestContext::GetGlobalContext());
+
+    if (CefBrowserHost::CreateBrowser(windowInfo, it->second->client, url, bs, nullptr, CefRequestContext::GetGlobalContext()))
+        return;
+
+    LOG_ERROR("[CEF] CefBrowserHost::CreateBrowser failed for browser ID {}.", id);
+
+    if (focusedBrowserId_ == id)
+        focusedBrowserId_ = -1;
+
+    pending_.erase(id);
+    RetireBrowserLocked(id);
+    ReportBrowserCreateFailure(id, BrowserCreateStatus::Error_Generic, "Browser creation failed");
 }
 
 void BrowserManager::SetWorld2DBrowserPos(int id, float worldX, float worldY, float worldZ)
