@@ -6,6 +6,7 @@
 ![CEF](https://img.shields.io/badge/CEF-158.0.3-blue)
 ![SA--MP](https://img.shields.io/badge/SA--MP-0.3.7%20%7C%200.3.DL-orange)
 ![open.mp](https://img.shields.io/badge/open.mp-supported-brightgreen)
+[![Discord](https://img.shields.io/discord/1384880714377465876?label=Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/Jv95ygPSNY)
 
 Client/server CEF plugin for **open.mp** and **SA-MP**.
 
