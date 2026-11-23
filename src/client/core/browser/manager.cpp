@@ -560,9 +560,17 @@ void BrowserManager::Shutdown()
 
     screen_capture_.StopAll();
     screen_capture_.OnDeviceLost();
-    browsers_.clear();
-    worldRenderers_.clear();
-    entityToBrowserId_.clear();
+
+    {
+        BrowsersLock lock(browsers_mutex_);
+        pending_.clear();
+        player_stats_poll_.clear();
+        entityToBrowserId_.clear();
+        worldRenderers_.clear();
+        browsers_.clear();
+        retired_world_renderers_.clear();
+        retired_browsers_.clear();
+    }
 
     CefShutdown();
     initialized_ = false;
@@ -574,12 +582,15 @@ void BrowserManager::CreateBrowser(
     int id, const std::string& url, bool focused, bool controls_chat, float width, float height)
 {
     LOG_DEBUG("[CEF] CreateBrowser called with ID={}, url={}", id, url);
-    
-    if (browsers_.count(id))
+
     {
-        LOG_ERROR("[CEF] CreateBrowser failed: Browser with ID {} already exists.", id);
-        LOG_ERROR("[CEF] Existing browser mode: {}", (int)browsers_[id]->mode);
-        return;
+        BrowsersLock lock(browsers_mutex_);
+        if (const auto it = browsers_.find(id); it != browsers_.end())
+        {
+            LOG_ERROR("[CEF] CreateBrowser failed: Browser with ID {} already exists.", id);
+            LOG_ERROR("[CEF] Existing browser mode: {}", (int)it->second->mode);
+            return;
+        }
     }
     CreateBrowserInternal(id, url, focused, controls_chat, width, height);
 }
@@ -593,11 +604,14 @@ void BrowserManager::CreateWorldBrowser(
     if (normalized_url != url)
         LOG_DEBUG("[CEF] Normalized URL -> {}", normalized_url);
 
-    if (browsers_.count(id))
     {
-        LOG_ERROR("[CEF] CreateWorldBrowser failed: Browser with ID {} already exists.", id);
-        LOG_ERROR("[CEF] Existing browser mode: {}", (int)browsers_[id]->mode);
-        return;
+        BrowsersLock lock(browsers_mutex_);
+        if (const auto it = browsers_.find(id); it != browsers_.end())
+        {
+            LOG_ERROR("[CEF] CreateWorldBrowser failed: Browser with ID {} already exists.", id);
+            LOG_ERROR("[CEF] Existing browser mode: {}", (int)it->second->mode);
+            return;
+        }
     }
 
     CreateWorldBrowserInternal(id, normalized_url, textureName, width, height);
@@ -613,11 +627,14 @@ void BrowserManager::CreateWorld2DBrowser(
     if (normalized_url != url)
         LOG_DEBUG("[CEF] Normalized URL -> {}", normalized_url);
 
-    if (browsers_.count(id))
     {
-        LOG_ERROR("[CEF] CreateWorld2DBrowser failed: Browser with ID {} already exists.", id);
-        LOG_ERROR("[CEF] Existing browser mode: {}", (int)browsers_[id]->mode);
-        return;
+        BrowsersLock lock(browsers_mutex_);
+        if (const auto it = browsers_.find(id); it != browsers_.end())
+        {
+            LOG_ERROR("[CEF] CreateWorld2DBrowser failed: Browser with ID {} already exists.", id);
+            LOG_ERROR("[CEF] Existing browser mode: {}", (int)it->second->mode);
+            return;
+        }
     }
 
     CreateWorld2DBrowserInternal(id, normalized_url, worldX, worldY, worldZ, width, height, offsetZ, pivotX, pivotY);
@@ -640,6 +657,8 @@ void BrowserManager::CreateBrowserInternal(
         return;
     }
 
+    BrowsersLock lock(browsers_mutex_);
+
     if (browsers_.count(id))
     {
         LOG_ERROR("[CEF] CreateBrowserInternal: Browser with ID {} already exists (race condition?).", id);
@@ -655,6 +674,8 @@ void BrowserManager::CreateBrowserInternal(
     browsers_[id] = std::move(instance);
 
     gta_.PostToMainThread([this, id, width, height]() {
+        BrowsersLock lock(browsers_mutex_);
+
         auto* inst = GetBrowserInstance(id);
         if (!inst) return;
 
@@ -724,6 +745,8 @@ void BrowserManager::CreateWorldBrowserInternal(
         return;
     }
 
+    BrowsersLock lock(browsers_mutex_);
+
     if (browsers_.count(id))
     {
         LOG_ERROR("[CEF] CreateWorldBrowserInternal: Browser with ID {} already exists (race condition?).", id);
@@ -741,6 +764,8 @@ void BrowserManager::CreateWorldBrowserInternal(
     const int browser_height = std::clamp((int)height, 1, 1024);
 
     gta_.PostToMainThread([this, id, textureName, browser_width, browser_height]() {
+        BrowsersLock lock(browsers_mutex_);
+
         auto* inst = GetBrowserInstance(id);
         if (!inst) return;
 
@@ -785,6 +810,8 @@ void BrowserManager::CreateWorld2DBrowserInternal(
         return;
     }
 
+    BrowsersLock lock(browsers_mutex_);
+
     if (browsers_.count(id))
     {
         LOG_ERROR("[CEF] CreateWorld2DBrowserInternal: Browser with ID {} already exists (race condition?).", id);
@@ -806,6 +833,8 @@ void BrowserManager::CreateWorld2DBrowserInternal(
     browsers_[id] = std::move(instance);
 
     gta_.PostToMainThread([this, id, width, height]() {
+        BrowsersLock lock(browsers_mutex_);
+
         auto* inst = GetBrowserInstance(id);
         if (!inst) return;
 
@@ -814,7 +843,7 @@ void BrowserManager::CreateWorld2DBrowserInternal(
 
         inst->view.Initialize(device);
 
-        int bw = std::clamp((int)width, 1, 1024);
+        int bw =std::clamp((int)width, 1, 1024);
         int bh = std::clamp((int)height, 1, 1024);
         inst->view.Create(bw, bh);
     });
@@ -926,6 +955,8 @@ void BrowserManager::DestroyBrowser(int id)
         return;
     }
 
+    BrowsersLock lock(browsers_mutex_);
+
     player_stats_poll_.erase(id);
     pending_.erase(id);
     CancelDrag(id);
@@ -964,8 +995,6 @@ void BrowserManager::DestroyBrowser(int id)
         }
     }
 
-    worldRenderers_.erase(id);
-
     if (instance->browser && instance->browser->GetHost())
     {
         instance->view.SetFocused(false);
@@ -973,8 +1002,43 @@ void BrowserManager::DestroyBrowser(int id)
         instance->browser = nullptr;
     }
 
-    browsers_.erase(it);
+    RetireBrowserLocked(id);
     LOG_DEBUG("[CEF] Browser ID {} destroyed and removed from map.", id);
+}
+
+void BrowserManager::RetireBrowserLocked(int id)
+{
+    if (auto wr = worldRenderers_.find(id); wr != worldRenderers_.end())
+    {
+        if (wr->second)
+            retired_world_renderers_.push_back(std::move(wr->second));
+        worldRenderers_.erase(wr);
+    }
+
+    if (auto it = browsers_.find(id); it != browsers_.end())
+    {
+        if (it->second)
+            retired_browsers_.push_back(std::move(it->second));
+        browsers_.erase(it);
+    }
+}
+
+void BrowserManager::ReleaseRetiredResources()
+{
+    // Game thread only.
+    std::vector<std::unique_ptr<WorldRenderer>> world_renderers;
+    std::vector<std::unique_ptr<BrowserInstance>> browsers;
+    {
+        BrowsersLock lock(browsers_mutex_);
+        if (retired_world_renderers_.empty() && retired_browsers_.empty())
+            return;
+
+        world_renderers.swap(retired_world_renderers_);
+        browsers.swap(retired_browsers_);
+    }
+
+    world_renderers.clear();
+    browsers.clear();
 }
 
 void BrowserManager::DestroyAllBrowsers()
@@ -985,13 +1049,33 @@ void BrowserManager::DestroyAllBrowsers()
         return;
     }
 
+    for (int id : GetBrowserIds())
+        DestroyBrowser(id);
+}
+
+std::vector<int> BrowserManager::GetBrowserIds() const
+{
+    BrowsersLock lock(browsers_mutex_);
+
     std::vector<int> ids;
     ids.reserve(browsers_.size());
-    for (auto& kv : browsers_)
+    for (const auto& kv : browsers_)
         ids.push_back(kv.first);
 
-    for (int id : ids)
-        DestroyBrowser(id);
+    return ids;
+}
+
+CefRect BrowserManager::GetBrowserViewRect(int id)
+{
+    BrowsersLock lock(browsers_mutex_);
+
+    if (auto* instance = GetBrowserInstance(id))
+    {
+        const auto rect = instance->view.rect();
+        return CefRect(rect.x, rect.y, rect.width, rect.height);
+    }
+
+    return CefRect(0, 0, 1, 1);
 }
 
 void BrowserManager::ReloadBrowser(int id, bool ignoreCache)
@@ -1092,6 +1176,8 @@ void BrowserManager::SetDevToolsEnabled(int browserId, bool enabled)
 
 void BrowserManager::AttachBrowserToObject(int browserId, int objectId)
 {
+    BrowsersLock lock(browsers_mutex_);
+
     if (!browsers_.count(browserId))
     {
         LOG_WARN("[CEF] AttachBrowserToObject: Browser ID {} does not exist.", browserId);
@@ -1113,6 +1199,8 @@ void BrowserManager::AttachBrowserToObject(int browserId, int objectId)
 
 void BrowserManager::DetachBrowserFromObject(int browserId, int objectId)
 {
+    BrowsersLock lock(browsers_mutex_);
+
     CEntity* nativeEntity = GetEntityFromObjectId(objectId);
     if (nativeEntity)
     {
@@ -1145,6 +1233,8 @@ CEntity* BrowserManager::GetEntityFromObjectId(int objectId)
 
 void BrowserManager::OnBrowserCreated(int id, CefRefPtr<CefBrowser> browser)
 {
+    BrowsersLock lock(browsers_mutex_);
+
     auto it = browsers_.find(id);
     if (it != browsers_.end())
     {
@@ -1166,10 +1256,12 @@ void BrowserManager::OnBrowserCreated(int id, CefRefPtr<CefBrowser> browser)
 
 void BrowserManager::OnBrowserClosed(int id)
 {
-    player_stats_poll_.erase(id);
     screen_capture_.Stop(id);
+
+    BrowsersLock lock(browsers_mutex_);
+    player_stats_poll_.erase(id);
     pending_.erase(id);
-    browsers_.erase(id);
+    RetireBrowserLocked(id);
 }
 
 void BrowserManager::StartScreenCapture(int browserId, int width, int height, int fps)
@@ -1267,6 +1359,8 @@ void BrowserManager::DispatchScreenFrameOnUi(std::shared_ptr<CapturedScreenFrame
 
 void BrowserManager::ClearPendingPaint(int id)
 {
+    BrowsersLock browsers_lock(browsers_mutex_);
+
     auto it = pending_.find(id);
     if (it == pending_.end())
         return;
@@ -1283,6 +1377,8 @@ void BrowserManager::ClearPendingPaint(int id)
 
 void BrowserManager::RestoreBrowserTextures()
 {
+    BrowsersLock browsers_lock(browsers_mutex_);
+
     for (auto& [id, instance] : browsers_)
     {
         if (!instance || !instance->visible)
@@ -1328,6 +1424,8 @@ void BrowserManager::RequestVisibleBrowsersRepaint()
         return;
     }
 
+    BrowsersLock browsers_lock(browsers_mutex_);
+
     for (auto& [id, instance] : browsers_)
     {
         if (!instance || !instance->visible || !instance->browser || !instance->browser->IsValid())
@@ -1354,6 +1452,8 @@ void BrowserManager::OnPaint(int id, const void* buffer, int width, int height, 
 {
     if (isCefUpdatesPaused_ || !buffer || width <= 0 || height <= 0)
         return;
+
+    BrowsersLock browsers_lock(browsers_mutex_);
 
     auto* instance = GetBrowserInstance(id);
     if (!instance)
@@ -1442,13 +1542,17 @@ void BrowserManager::DispatchExternalBeginFramesOnUi()
 {
     CEF_REQUIRE_UI_THREAD();
 
-    for (auto& [id, inst] : browsers_)
     {
-        if (!inst || !inst->visible || !inst->browser || !inst->browser->IsValid())
-            continue;
+        BrowsersLock browsers_lock(browsers_mutex_);
 
-        if (auto host = inst->browser->GetHost())
-            host->SendExternalBeginFrame();
+        for (auto& [id, inst] : browsers_)
+        {
+            if (!inst || !inst->visible || !inst->browser || !inst->browser->IsValid())
+                continue;
+
+            if (auto host = inst->browser->GetHost())
+                host->SendExternalBeginFrame();
+        }
     }
 
     begin_frame_task_pending_.store(false, std::memory_order_release);
@@ -1456,10 +1560,13 @@ void BrowserManager::DispatchExternalBeginFramesOnUi()
 
 bool BrowserManager::RenderAll()
 {
+    ReleaseRetiredResources();
     UpdateNativeUiInput();
 
     if (ShouldSkipBrowserRendering())
         return false;
+
+    BrowsersLock browsers_lock(browsers_mutex_);
 
     UpdateAudioSpatialization();
     SendExternalBeginFrames();
@@ -1604,6 +1711,11 @@ void BrowserManager::OnBeforeEntityRender(CEntity* entity)
     if (ShouldSkipBrowserRendering())
         return;
 
+    BrowsersLock browsers_lock(browsers_mutex_);
+
+    if (entityToBrowserId_.empty())
+        return;
+
     auto it = entityToBrowserId_.find(entity);
     if (it == entityToBrowserId_.end())
         return;
@@ -1623,12 +1735,17 @@ void BrowserManager::OnBeforeEntityRender(CEntity* entity)
 
 void BrowserManager::OnAfterEntityRender(CEntity* entity)
 {
+    BrowsersLock browsers_lock(browsers_mutex_);
+
+    if (entityToBrowserId_.empty())
+        return;
+
     auto it = entityToBrowserId_.find(entity);
     if (it == entityToBrowserId_.end())
         return;
     int browserId = it->second;
     auto wrIt = worldRenderers_.find(browserId);
-    if (wrIt != worldRenderers_.end())
+    if (wrIt != worldRenderers_.end() && wrIt->second)
     {
         wrIt->second->RestoreTexture();
     }
@@ -1636,6 +1753,8 @@ void BrowserManager::OnAfterEntityRender(CEntity* entity)
 
 BrowserInstance* BrowserManager::GetBrowserInstance(int id)
 {
+    BrowsersLock browsers_lock(browsers_mutex_);
+
     auto it = browsers_.find(id);
     return it != browsers_.end() ? it->second.get() : nullptr;
 }
@@ -1644,6 +1763,8 @@ bool BrowserManager::IsAnyBrowserVisible() const
 {
     if (ShouldSkipBrowserRendering())
         return false;
+
+    BrowsersLock browsers_lock(browsers_mutex_);
 
     for (const auto& [id, browser] : browsers_)
     {
@@ -1655,6 +1776,8 @@ bool BrowserManager::IsAnyBrowserVisible() const
 
 bool BrowserManager::IsAnyBrowserFocused() const
 {
+    BrowsersLock browsers_lock(browsers_mutex_);
+
     for (const auto& [id, instance] : browsers_)
     {
         if (instance && instance->view.IsFocused())
@@ -1742,6 +1865,7 @@ void BrowserManager::UpdateAudioSpatialization()
     }
 
     // Update 3D positions for world browsers bound to entities
+    BrowsersLock browsers_lock(browsers_mutex_);
     for (const auto& [entity, browserId] : entityToBrowserId_)
     {
         if (entity && entity->m_matrix)
@@ -1834,6 +1958,7 @@ bool BrowserManager::IsFocusedTextInputActive() const
     if (!focus_ || focusedBrowserId_ < 0)
         return false;
 
+    BrowsersLock browsers_lock(browsers_mutex_);
     const auto browser = browsers_.find(focusedBrowserId_);
     return browser != browsers_.end()
         && browser->second
@@ -1869,6 +1994,7 @@ void BrowserManager::EmitCustomEscapeMenuVisibility()
 
     const bool visible = escape_menu_.IsCustomMenuOpen();
 
+    BrowsersLock browsers_lock(browsers_mutex_);
     for (const auto& [id, instance] : browsers_)
     {
         if (!instance || !instance->browser || !instance->browser->IsValid())
@@ -1897,6 +2023,7 @@ void BrowserManager::EmitCustomPlayerListVisibility()
 
     const bool visible = player_list_.IsCustomPlayerListOpen();
 
+    BrowsersLock browsers_lock(browsers_mutex_);
     for (const auto& [id, instance] : browsers_)
     {
         if (!instance || !instance->browser || !instance->browser->IsValid())
@@ -1955,7 +2082,11 @@ void BrowserManager::OnDeviceLost()
     // This prevents CEF from trying to update textures while they're invalid
     isCefUpdatesPaused_ = true;
     screen_capture_.OnDeviceLost();
-    
+
+    // Called from the Reset hook on the game thread.
+    ReleaseRetiredResources();
+    BrowsersLock browsers_lock(browsers_mutex_);
+
     // Release all browser View resources (2D overlays)
     for (auto& [id, instance] : browsers_) 
     {
@@ -1979,6 +2110,8 @@ void BrowserManager::OnDeviceLost()
 
 void BrowserManager::OnDeviceReset(IDirect3DDevice9* device)
 {
+    BrowsersLock browsers_lock(browsers_mutex_);
+
     // Recreate all browser View resources (2D overlays)
     for (auto& [id, instance] : browsers_) 
     {
@@ -2337,6 +2470,7 @@ void BrowserManager::SetPlayerStatsPolling(int browserId, bool enabled, int inte
     if (intervalMs <= 0)
         intervalMs = 50;
 
+    BrowsersLock browsers_lock(browsers_mutex_);
     auto& state = player_stats_poll_[browserId];
     state.enabled = enabled;
     state.intervalMs = static_cast<uint32_t>(intervalMs);
@@ -2349,7 +2483,12 @@ void BrowserManager::SetPlayerStatsPolling(int browserId, bool enabled, int inte
 
 void BrowserManager::TickGameData()
 {
-    if (!initialized_ || player_stats_poll_.empty())
+    if (!initialized_)
+        return;
+
+    BrowsersLock browsers_lock(browsers_mutex_);
+
+    if (player_stats_poll_.empty())
         return;
 
     const uint64_t now = ::GetTickCount64();

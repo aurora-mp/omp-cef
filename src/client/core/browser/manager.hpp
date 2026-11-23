@@ -4,6 +4,7 @@
 #include <bitset>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -192,10 +193,8 @@ public:
 
     BrowserInstance* GetBrowserInstance(int id);
     BrowserInstance* GetFocusedBrowser();
-    const std::unordered_map<int, std::unique_ptr<BrowserInstance>>& GetAllBrowsers() const
-    {
-        return browsers_;
-    }
+    std::vector<int> GetBrowserIds() const;
+    CefRect GetBrowserViewRect(int id);
     bool IsAnyBrowserVisible() const;
     bool IsAnyBrowserFocused() const;
     cef_cursor_type_t GetCursorType() const
@@ -229,6 +228,8 @@ private:
     void EmitCustomPlayerListVisibility();
 
     CEntity* GetEntityFromObjectId(int objectId);
+    void RetireBrowserLocked(int id);
+    void ReleaseRetiredResources();
     void ClearPendingPaint(int id);
     void RestoreBrowserTextures();
     void RequestVisibleBrowsersRepaint();
@@ -262,9 +263,15 @@ private:
     // The single source for which browser has focus. -1 means none.
     int focusedBrowserId_ = -1;
 
+    using BrowsersLock = std::lock_guard<std::recursive_mutex>;
+    mutable std::recursive_mutex browsers_mutex_;
+
     std::unordered_map<int, std::unique_ptr<BrowserInstance>> browsers_;
     std::unordered_map<int, std::unique_ptr<WorldRenderer>> worldRenderers_;
     std::unordered_map<CEntity*, int> entityToBrowserId_;
+
+    std::vector<std::unique_ptr<BrowserInstance>> retired_browsers_;
+    std::vector<std::unique_ptr<WorldRenderer>> retired_world_renderers_;
 
     bool draw_enabled_ = true;
     cef_cursor_type_t cursor_type_ = CT_POINTER;

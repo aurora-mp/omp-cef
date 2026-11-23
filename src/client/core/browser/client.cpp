@@ -132,7 +132,7 @@ void BrowserClient::OnAfterCreated(CefRefPtr<CefBrowser> browser)
 
 void BrowserClient::GetViewRect(CefRefPtr<CefBrowser> /*browser*/, CefRect& rect)
 {
-    rect = manager_.GetBrowserInstance(browserId_)->view.rect();
+    rect = manager_.GetBrowserViewRect(browserId_);
 }
 
 void BrowserClient::OnPaint(CefRefPtr<CefBrowser> /*browser*/,

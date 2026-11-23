@@ -100,9 +100,8 @@ void ChatHook::SetChatInputState(bool open)
     focus_.SetChatInputOpen(open);
 
     // Local JS event to all browsers
-    for (const auto& kv : browser_.GetAllBrowsers())
+    for (const int id : browser_.GetBrowserIds())
     {
-        const int id = kv.first;
         auto* inst = browser_.GetBrowserInstance(id);
         if (!inst || !inst->browser)
             continue;
