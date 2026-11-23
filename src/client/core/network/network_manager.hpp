@@ -58,7 +58,8 @@ private:
 	void DoKcpUpdate();
 
 	void HandleRawMessage(const char* data, size_t len);
-	void HandleKcpInput();
+	void ReceiveKcpMessagesLocked(std::vector<std::vector<uint8_t>>& out);
+	void DispatchKcpMessages(const std::vector<std::vector<uint8_t>>& messages);
 	void CleanupTransport();
 
 	void FireSessionActive(bool active);

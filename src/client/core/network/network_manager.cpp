@@ -203,13 +203,24 @@ void NetworkManager::DoReceive()
 
 void NetworkManager::HandleRawMessage(const char* data, size_t len)
 {
-	if (kcp_instance_) {
-		int input_res = ikcp_input(kcp_instance_, data, static_cast<long>(len));
-		if (input_res < 0) {
-			LOG_WARN("[KCP] ikcp_input error: {}.", input_res);
-		}
+	std::vector<std::vector<uint8_t>> messages;
+	bool handled_by_kcp = false;
+	{
+		std::lock_guard<std::mutex> lock(kcp_mutex_);
+		if (kcp_instance_) {
+			handled_by_kcp = true;
 
-		HandleKcpInput();
+			int input_res = ikcp_input(kcp_instance_, data, static_cast<long>(len));
+			if (input_res < 0) {
+				LOG_WARN("[KCP] ikcp_input error: {}.", input_res);
+			}
+
+			ReceiveKcpMessagesLocked(messages);
+		}
+	}
+
+	if (handled_by_kcp) {
+		DispatchKcpMessages(messages);
 		return;
 	}
 
@@ -319,19 +330,33 @@ void NetworkManager::HandleRawMessage(const char* data, size_t len)
 	}
 }
 
-void NetworkManager::HandleKcpInput()
+void NetworkManager::ReceiveKcpMessagesLocked(std::vector<std::vector<uint8_t>>& out)
 {
-	std::vector<char> kcp_buffer(65535);
-	int msg_size;
-
-	while ((msg_size = ikcp_recv(kcp_instance_, kcp_buffer.data(), static_cast<int>(kcp_buffer.size()))) > 0)
+	while (kcp_instance_)
 	{
+		const int peek_size = ikcp_peeksize(kcp_instance_);
+		if (peek_size <= 0)
+			break;
+
+		std::vector<char> kcp_buffer(static_cast<size_t>(peek_size));
+		const int msg_size = ikcp_recv(kcp_instance_, kcp_buffer.data(), peek_size);
+		if (msg_size <= 0)
+			break;
+
 		std::vector<uint8_t> decrypted = DecryptPacket({ kcp_buffer.begin(), kcp_buffer.begin() + msg_size }, rx_key_);
 		if (decrypted.empty()) {
 			LOG_WARN("[CLIENT] Failed to decrypt KCP packet.");
 			continue;
 		}
 
+		out.push_back(std::move(decrypted));
+	}
+}
+
+void NetworkManager::DispatchKcpMessages(const std::vector<std::vector<uint8_t>>& messages)
+{
+	for (const auto& decrypted : messages)
+	{
 		NetworkPacket packet;
 		if (!DeserializePacket(reinterpret_cast<const char*>(decrypted.data()), decrypted.size(), packet)) {
 			LOG_WARN("[CLIENT] Failed to deserialize decrypted KCP packet.");
@@ -446,14 +471,20 @@ void NetworkManager::DoKcpUpdate()
 
 void NetworkManager::SendRaw(const char* data, int size) {
 	auto buffer = std::make_shared<std::vector<char>>(data, data + size);
-	socket_.async_send_to(
-		asio::buffer(*buffer), server_endpoint_,
-		[this, buffer, size](std::error_code ec, std::size_t) {
-			if (ec) {
-				LOG_ERROR("[CLIENT] UDP send error: {}", ec.message());
+
+	asio::post(io_context_, [this, buffer]() {
+		if (!socket_.is_open())
+			return;
+
+		socket_.async_send_to(
+			asio::buffer(*buffer), server_endpoint_,
+			[buffer](std::error_code ec, std::size_t) {
+				if (ec) {
+					LOG_ERROR("[CLIENT] UDP send error: {}", ec.message());
+				}
 			}
-		}
-	);
+		);
+	});
 }
 
 void NetworkManager::SetPacketHandler(PacketHandler handler) 
