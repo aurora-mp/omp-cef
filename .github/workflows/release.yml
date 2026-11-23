@@ -38,7 +38,7 @@ jobs:
     uses: ./.github/workflows/build-client-reusable.yml
     with:
       version: ${{ github.event.inputs.version }}
-      cef-version: 148.0.10+g7ee53f5+chromium-148.0.7778.218
+      cef-version: 158.0.3+g8c29be2+chromium-158.0.8127.18
       cef-arch: windows32
       build-type: Release
 

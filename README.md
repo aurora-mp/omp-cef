@@ -3,7 +3,7 @@
 ![Version](https://img.shields.io/github/v/release/aurora-mp/omp-cef?include_prereleases&label=version)
 ![License](https://img.shields.io/github/license/aurora-mp/omp-cef)
 [![Wiki](https://img.shields.io/badge/docs-wiki-blue)](https://github.com/aurora-mp/omp-cef/wiki)
-![CEF](https://img.shields.io/badge/CEF-148.0.10-blue)
+![CEF](https://img.shields.io/badge/CEF-158.0.3-blue)
 ![SA--MP](https://img.shields.io/badge/SA--MP-0.3.7%20%7C%200.3.DL-orange)
 ![open.mp](https://img.shields.io/badge/open.mp-supported-brightgreen)
 
@@ -43,7 +43,7 @@ https://github.com/aurora-mp/omp-cef/wiki
 ## Current CEF version
 
 ```txt
-148.0.10+g7ee53f5+chromium-148.0.7778.218
+158.0.3+g8c29be2+chromium-158.0.8127.18
 ```
 
 ## Repository layout
