@@ -8,41 +8,19 @@
 ### 🧹 Chore
 
 - *(client)* Update CEF to 158.0.3 (Chromium 158.0.8127.18) - ([87fc74e](https://github.com/aurora-mp/omp-cef/commit/87fc74ee98e72f0b7d83dffdc3456bb5ea9279fe))
-- *(client)* Update CEF to 158.0.3 (Chromium 158.0.8127.18) - ([87fc74e](https://github.com/aurora-mp/omp-cef/commit/87fc74ee98e72f0b7d83dffdc3456bb5ea9279fe))
 - Bump version to 1.4.1 - ([6192818](https://github.com/aurora-mp/omp-cef/commit/619281813aec2a93de19af83f1b74d9164c9e271))
 
 ### 🐛 Bug Fixes
 
 - *(client)* Drop the unused directxsdk dependency - ([001baef](https://github.com/aurora-mp/omp-cef/commit/001baefb6d809a1ce8905c9e12fe44773e46a984))
 - *(client)* Report failed browser creation to the server - ([4f43edf](https://github.com/aurora-mp/omp-cef/commit/4f43edf26dfb69e5da1b242a104d6e4a5a31a03d))
-- *(client)* Report failed browser creation to the server - ([4f43edf](https://github.com/aurora-mp/omp-cef/commit/4f43edf26dfb69e5da1b242a104d6e4a5a31a03d))
-- *(client)* Report failed browser creation to the server - ([4f43edf](https://github.com/aurora-mp/omp-cef/commit/4f43edf26dfb69e5da1b242a104d6e4a5a31a03d))
 - *(client)* Isolate CEF overlay rendering state - ([2fceeb5](https://github.com/aurora-mp/omp-cef/commit/2fceeb5e9d0269175c371e351bde6c013f937f6f))
 - *(client)* Synchronize browser state between CEF and game threads - ([d7ecab1](https://github.com/aurora-mp/omp-cef/commit/d7ecab1cfb19cf10d2d5b527a991897880c65026))
-- *(client)* Synchronize browser state between CEF and game threads - ([d7ecab1](https://github.com/aurora-mp/omp-cef/commit/d7ecab1cfb19cf10d2d5b527a991897880c65026))
-- *(client)* Synchronize browser state between CEF and game threads - ([d7ecab1](https://github.com/aurora-mp/omp-cef/commit/d7ecab1cfb19cf10d2d5b527a991897880c65026))
-- *(client)* Synchronize browser state between CEF and game threads - ([d7ecab1](https://github.com/aurora-mp/omp-cef/commit/d7ecab1cfb19cf10d2d5b527a991897880c65026))
-- *(client)* Handle server packets on the game thread - ([8aa495f](https://github.com/aurora-mp/omp-cef/commit/8aa495fd3f81323ecfd22dd29a27cf3db57456ee))
 - *(client)* Handle server packets on the game thread - ([8aa495f](https://github.com/aurora-mp/omp-cef/commit/8aa495fd3f81323ecfd22dd29a27cf3db57456ee))
 - *(client)* Serialize KCP access and socket sends - ([ba9dfc4](https://github.com/aurora-mp/omp-cef/commit/ba9dfc48998aecc54c86a6e391a35639d04a1a7d))
-- *(client)* Serialize KCP access and socket sends - ([ba9dfc4](https://github.com/aurora-mp/omp-cef/commit/ba9dfc48998aecc54c86a6e391a35639d04a1a7d))
-- *(client)* Serialize KCP access and socket sends - ([ba9dfc4](https://github.com/aurora-mp/omp-cef/commit/ba9dfc48998aecc54c86a6e391a35639d04a1a7d))
-- *(client)* Only write requested resource files inside the cache - ([b0fb7d9](https://github.com/aurora-mp/omp-cef/commit/b0fb7d9bf082ed2bcdb19166be86636755140bd5))
 - *(client)* Only write requested resource files inside the cache - ([b0fb7d9](https://github.com/aurora-mp/omp-cef/commit/b0fb7d9bf082ed2bcdb19166be86636755140bd5))
 - *(samp)* Drain the main-thread task queue from ProcessTick - ([e018fc1](https://github.com/aurora-mp/omp-cef/commit/e018fc16680d900b02ca9a15b30d843df96398fa))
-- *(samp)* Drain the main-thread task queue from ProcessTick - ([e018fc1](https://github.com/aurora-mp/omp-cef/commit/e018fc16680d900b02ca9a15b30d843df96398fa))
-- *(samp)* Drain the main-thread task queue from ProcessTick - ([e018fc1](https://github.com/aurora-mp/omp-cef/commit/e018fc16680d900b02ca9a15b30d843df96398fa))
 - *(server)* Enforce the game IP check on RequestJoin - ([cac2932](https://github.com/aurora-mp/omp-cef/commit/cac293234e8873d90430824118ebaae6d0753319))
-- *(server)* Enforce the game IP check on RequestJoin - ([cac2932](https://github.com/aurora-mp/omp-cef/commit/cac293234e8873d90430824118ebaae6d0753319))
-- *(server)* Enforce the game IP check on RequestJoin - ([cac2932](https://github.com/aurora-mp/omp-cef/commit/cac293234e8873d90430824118ebaae6d0753319))
-- *(server)* Enforce the game IP check on RequestJoin - ([cac2932](https://github.com/aurora-mp/omp-cef/commit/cac293234e8873d90430824118ebaae6d0753319))
-
-### 🤖 CI
-
-- *(client)* Pin CMake 4.4.4 for the client build (tmp) - ([0dc2c22](https://github.com/aurora-mp/omp-cef/commit/0dc2c220143524029f15d53bf5753722cfe24a54))
-
-
-
 
 ## [1.4.0](https://github.com/aurora-mp/omp-cef/compare/v1.3.0..v1.4.0) (2026-10-14)
 
@@ -56,7 +34,6 @@
 
 ### 🐛 Bug Fixes
 
-- *(client)* Restore static CEF textures after Alt+Tab - ([6a7412a](https://github.com/aurora-mp/omp-cef/commit/6a7412ad0caf6236e5a3058515927fb1f3b131c8))
 - *(client)* Restore static CEF textures after Alt+Tab - ([6a7412a](https://github.com/aurora-mp/omp-cef/commit/6a7412ad0caf6236e5a3058515927fb1f3b131c8))
 
 ## New Contributors ❤️
@@ -81,33 +58,15 @@
 
 - *(server)* Add resource loader UI mode & some improvements - ([55f99fc](https://github.com/aurora-mp/omp-cef/commit/55f99fc2171924e8818445fb1c15ff02dbcb19b8))
 - *(server)* Add resource loader UI mode & some improvements - ([a97da20](https://github.com/aurora-mp/omp-cef/commit/a97da20fdb9b430d8fcfa982ffb3c14aacef81a9))
-- *(server)* Add resource loader UI mode & some improvements - ([a97da20](https://github.com/aurora-mp/omp-cef/commit/a97da20fdb9b430d8fcfa982ffb3c14aacef81a9))
-- *(server)* Add resource loader UI mode & some improvements - ([a97da20](https://github.com/aurora-mp/omp-cef/commit/a97da20fdb9b430d8fcfa982ffb3c14aacef81a9))
-- *(server)* Add resource loader UI mode & some improvements - ([a97da20](https://github.com/aurora-mp/omp-cef/commit/a97da20fdb9b430d8fcfa982ffb3c14aacef81a9))
-- *(server)* Add resource loader UI mode & some improvements - ([a97da20](https://github.com/aurora-mp/omp-cef/commit/a97da20fdb9b430d8fcfa982ffb3c14aacef81a9))
-- *(server)* Add resource loader UI mode & some improvements - ([a97da20](https://github.com/aurora-mp/omp-cef/commit/a97da20fdb9b430d8fcfa982ffb3c14aacef81a9))
-- *(server)* Add resource loader UI mode & some improvements - ([a97da20](https://github.com/aurora-mp/omp-cef/commit/a97da20fdb9b430d8fcfa982ffb3c14aacef81a9))
 - Add custom player list mode with samp scoreboard hook - ([94ad23a](https://github.com/aurora-mp/omp-cef/commit/94ad23a099a29bf8dca76b66fe312c05c1108bb1))
 - Add custom player list mode with samp scoreboard hook (CEF_SetPlayerListMode) - ([42b854f](https://github.com/aurora-mp/omp-cef/commit/42b854ff77fb9aa3a40f8ea325fba3e7f00b6891))
 - Add CEF_LoadUrl (missing native needed to navigate an existing browser) - ([f87bc82](https://github.com/aurora-mp/omp-cef/commit/f87bc824df648991096a503ec4c7f866416d306a))
 - [**breaking**] Update CEF to the latest version - ([0e98977](https://github.com/aurora-mp/omp-cef/commit/0e98977355c491f2a7a75c9fbf8f3a4d8cede145))
-- [**breaking**] Update CEF to the latest version - ([0e98977](https://github.com/aurora-mp/omp-cef/commit/0e98977355c491f2a7a75c9fbf8f3a4d8cede145))
 - Add custom escape menu mode (native CEF_SetEscapeMenuMode) - ([2968640](https://github.com/aurora-mp/omp-cef/commit/2968640e093bd28388deac19a49d5a9070f1aeb4))
-- Add custom escape menu mode (native CEF_SetEscapeMenuMode) - ([5d13e14](https://github.com/aurora-mp/omp-cef/commit/5d13e14753ea8da6d8021a4e5d8c1c941675bcea))
-- Add custom escape menu mode (native CEF_SetEscapeMenuMode) - ([5d13e14](https://github.com/aurora-mp/omp-cef/commit/5d13e14753ea8da6d8021a4e5d8c1c941675bcea))
 - Add custom escape menu mode (native CEF_SetEscapeMenuMode) - ([5d13e14](https://github.com/aurora-mp/omp-cef/commit/5d13e14753ea8da6d8021a4e5d8c1c941675bcea))
 
 ### 🐛 Bug Fixes
 
-- *(client)* Clear browser texture on navigation to prevent ghosting - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
-- *(client)* Clear browser texture on navigation to prevent ghosting - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
-- *(client)* Clear browser texture on navigation to prevent ghosting - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
-- *(client)* Clear browser texture on navigation to prevent ghosting - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
-- *(client)* Clear browser texture on navigation to prevent ghosting - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
-- *(client)* Clear browser texture on navigation to prevent ghosting - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
-- *(client)* Clear browser texture on navigation to prevent ghosting - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
-- *(client)* Clear browser texture on navigation to prevent ghosting - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
-- *(client)* Clear browser texture on navigation to prevent ghosting - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
 - *(client)* Clear browser texture on navigation to prevent ghosting - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
 - *(client)* Ensure menu is draw - ([dd478b7](https://github.com/aurora-mp/omp-cef/commit/dd478b7eeff9fd634cab59d5904fa042805a6edb))
 - *(client)* CEF browsers is now hidden in other menus - ([90116ff](https://github.com/aurora-mp/omp-cef/commit/90116ffa02560d4ce889ccb64907b4c5f4b48004))
@@ -115,9 +74,6 @@
 - //empty/ when closing an interface) then showing it flashed the - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
 - :OnBeforeBrowse flags a clear on main-frame navigation to a - ([d54725d](https://github.com/aurora-mp/omp-cef/commit/d54725d0d36409cda3ca9707c2e5e5a6985c52e6))
 - WorldObject3D texture swaps for hidden browsers - ([fd5e81d](https://github.com/aurora-mp/omp-cef/commit/fd5e81d10ac582401281d136ebf0775335d9fced))
-- Handle CEF reconnects after server restarts #31 - ([52c118c](https://github.com/aurora-mp/omp-cef/commit/52c118cc775472185b6140498cfa9f4fcdad68ff))
-- Handle CEF reconnects after server restarts #31 - ([52c118c](https://github.com/aurora-mp/omp-cef/commit/52c118cc775472185b6140498cfa9f4fcdad68ff))
-- Handle CEF reconnects after server restarts #31 - ([52c118c](https://github.com/aurora-mp/omp-cef/commit/52c118cc775472185b6140498cfa9f4fcdad68ff))
 - Handle CEF reconnects after server restarts #31 - ([52c118c](https://github.com/aurora-mp/omp-cef/commit/52c118cc775472185b6140498cfa9f4fcdad68ff))
 - Cef thread races on browser creation (D3D) - ([06fb567](https://github.com/aurora-mp/omp-cef/commit/06fb567f58b9e497dfe6b63a133263c4f157166f))
 
@@ -137,12 +93,6 @@
 
 - *(client)* Sync CEF frames to render tick - ([f79eb9d](https://github.com/aurora-mp/omp-cef/commit/f79eb9d3651b10788863861b5e2a61b8b9c92c71))
 - *(client)* Sync CEF frames to render tick - ([285814b](https://github.com/aurora-mp/omp-cef/commit/285814bf84d4d96a49f8772302758bd8c26bc020))
-- [**breaking**] Optimize CEF resource packing and cache validation - ([a272bb3](https://github.com/aurora-mp/omp-cef/commit/a272bb3fbcfdb5e6d4b7ebdf41d6729112f821e7))
-- [**breaking**] Optimize CEF resource packing and cache validation - ([a272bb3](https://github.com/aurora-mp/omp-cef/commit/a272bb3fbcfdb5e6d4b7ebdf41d6729112f821e7))
-- [**breaking**] Optimize CEF resource packing and cache validation - ([a272bb3](https://github.com/aurora-mp/omp-cef/commit/a272bb3fbcfdb5e6d4b7ebdf41d6729112f821e7))
-- [**breaking**] Optimize CEF resource packing and cache validation - ([a272bb3](https://github.com/aurora-mp/omp-cef/commit/a272bb3fbcfdb5e6d4b7ebdf41d6729112f821e7))
-- [**breaking**] Optimize CEF resource packing and cache validation - ([a272bb3](https://github.com/aurora-mp/omp-cef/commit/a272bb3fbcfdb5e6d4b7ebdf41d6729112f821e7))
-- [**breaking**] Optimize CEF resource packing and cache validation - ([a272bb3](https://github.com/aurora-mp/omp-cef/commit/a272bb3fbcfdb5e6d4b7ebdf41d6729112f821e7))
 - [**breaking**] Optimize CEF resource packing and cache validation - ([a272bb3](https://github.com/aurora-mp/omp-cef/commit/a272bb3fbcfdb5e6d4b7ebdf41d6729112f821e7))
 
 ## New Contributors ❤️
@@ -191,15 +141,6 @@
 - Add `CEF_ToggleChatInput` - ([5bab951](https://github.com/aurora-mp/omp-cef/commit/5bab951a2a47ff92f7ba7dbebd4cbdb09d18677b))
 - Add `CEF_ExitGame` #8 - ([9f510a4](https://github.com/aurora-mp/omp-cef/commit/9f510a4926a61dfa20e6145ab95262cae66bbe24))
 - New features added - ([00027fe](https://github.com/aurora-mp/omp-cef/commit/00027fedaeec860139003c79038d15759f0bef4a))
-- New features added - ([00027fe](https://github.com/aurora-mp/omp-cef/commit/00027fedaeec860139003c79038d15759f0bef4a))
-- New features added - ([00027fe](https://github.com/aurora-mp/omp-cef/commit/00027fedaeec860139003c79038d15759f0bef4a))
-- New features added - ([00027fe](https://github.com/aurora-mp/omp-cef/commit/00027fedaeec860139003c79038d15759f0bef4a))
-- New features added - ([00027fe](https://github.com/aurora-mp/omp-cef/commit/00027fedaeec860139003c79038d15759f0bef4a))
-- New features added - ([00027fe](https://github.com/aurora-mp/omp-cef/commit/00027fedaeec860139003c79038d15759f0bef4a))
-- New features added - ([00027fe](https://github.com/aurora-mp/omp-cef/commit/00027fedaeec860139003c79038d15759f0bef4a))
-- New features added - ([00027fe](https://github.com/aurora-mp/omp-cef/commit/00027fedaeec860139003c79038d15759f0bef4a))
-- New features added - ([00027fe](https://github.com/aurora-mp/omp-cef/commit/00027fedaeec860139003c79038d15759f0bef4a))
-- New features added - ([00027fe](https://github.com/aurora-mp/omp-cef/commit/00027fedaeec860139003c79038d15759f0bef4a))
 
 ### 🐛 Bug Fixes
 
@@ -219,15 +160,7 @@
 ### 🐛 Bug Fixes
 
 - *(client)* Make WndProc hook resilient to SA-MP replacing window proc - ([e437c69](https://github.com/aurora-mp/omp-cef/commit/e437c690e6908880e2eb06ab5df024efd51787f9))
-- *(client)* Make WndProc hook resilient to SA-MP replacing window proc - ([e437c69](https://github.com/aurora-mp/omp-cef/commit/e437c690e6908880e2eb06ab5df024efd51787f9))
-- *(client)* Make WndProc hook resilient to SA-MP replacing window proc - ([e437c69](https://github.com/aurora-mp/omp-cef/commit/e437c690e6908880e2eb06ab5df024efd51787f9))
-- *(client)* Make WndProc hook resilient to SA-MP replacing window proc - ([e437c69](https://github.com/aurora-mp/omp-cef/commit/e437c690e6908880e2eb06ab5df024efd51787f9))
-- *(client)* Make WndProc hook resilient to SA-MP replacing window proc - ([e437c69](https://github.com/aurora-mp/omp-cef/commit/e437c690e6908880e2eb06ab5df024efd51787f9))
 - *(server)* Fix NotifyCefInitialize default params. - ([a414d14](https://github.com/aurora-mp/omp-cef/commit/a414d148a59481025f10c0832a74fa37d224dff6))
-- Handle NPC playerid offset + add strict client/server version check + fix encoding - ([06ee8bf](https://github.com/aurora-mp/omp-cef/commit/06ee8bf185c196fc5ae59742d92c46964a88efce))
-- Handle NPC playerid offset + add strict client/server version check + fix encoding - ([06ee8bf](https://github.com/aurora-mp/omp-cef/commit/06ee8bf185c196fc5ae59742d92c46964a88efce))
-- Handle NPC playerid offset + add strict client/server version check + fix encoding - ([06ee8bf](https://github.com/aurora-mp/omp-cef/commit/06ee8bf185c196fc5ae59742d92c46964a88efce))
-- Handle NPC playerid offset + add strict client/server version check + fix encoding - ([06ee8bf](https://github.com/aurora-mp/omp-cef/commit/06ee8bf185c196fc5ae59742d92c46964a88efce))
 - Handle NPC playerid offset + add strict client/server version check + fix encoding - ([06ee8bf](https://github.com/aurora-mp/omp-cef/commit/06ee8bf185c196fc5ae59742d92c46964a88efce))
 
 
@@ -244,10 +177,6 @@
 
 ### 🐛 Bug Fixes
 
-- *(client)* Fix CEF OSR lag: queue OnPaint frames in CPU and upload textures on D3D thread during RenderAll - ([e0ddcfe](https://github.com/aurora-mp/omp-cef/commit/e0ddcfe421e6f9c4b48484d5c95c38f3842dfd7e))
-- *(client)* Fix CEF OSR lag: queue OnPaint frames in CPU and upload textures on D3D thread during RenderAll - ([e0ddcfe](https://github.com/aurora-mp/omp-cef/commit/e0ddcfe421e6f9c4b48484d5c95c38f3842dfd7e))
-- *(client)* Fix CEF OSR lag: queue OnPaint frames in CPU and upload textures on D3D thread during RenderAll - ([e0ddcfe](https://github.com/aurora-mp/omp-cef/commit/e0ddcfe421e6f9c4b48484d5c95c38f3842dfd7e))
-- *(client)* Fix CEF OSR lag: queue OnPaint frames in CPU and upload textures on D3D thread during RenderAll - ([e0ddcfe](https://github.com/aurora-mp/omp-cef/commit/e0ddcfe421e6f9c4b48484d5c95c38f3842dfd7e))
 - *(client)* Fix CEF OSR lag: queue OnPaint frames in CPU and upload textures on D3D thread during RenderAll - ([e0ddcfe](https://github.com/aurora-mp/omp-cef/commit/e0ddcfe421e6f9c4b48484d5c95c38f3842dfd7e))
 
 
@@ -271,15 +200,6 @@
 ### ♻️ Refactoring
 
 - *(client)* Replace D3D9 device proxy with vtable hooks + fallback poll - ([30c9a66](https://github.com/aurora-mp/omp-cef/commit/30c9a66ec3ede94d3b6678cf2f86b97fba0353a1))
-- *(client)* Replace D3D9 device proxy with vtable hooks + fallback poll - ([30c9a66](https://github.com/aurora-mp/omp-cef/commit/30c9a66ec3ede94d3b6678cf2f86b97fba0353a1))
-- *(client)* Replace D3D9 device proxy with vtable hooks + fallback poll - ([30c9a66](https://github.com/aurora-mp/omp-cef/commit/30c9a66ec3ede94d3b6678cf2f86b97fba0353a1))
-- *(client)* Replace D3D9 device proxy with vtable hooks + fallback poll - ([30c9a66](https://github.com/aurora-mp/omp-cef/commit/30c9a66ec3ede94d3b6678cf2f86b97fba0353a1))
-- *(client)* Replace D3D9 device proxy with vtable hooks + fallback poll - ([30c9a66](https://github.com/aurora-mp/omp-cef/commit/30c9a66ec3ede94d3b6678cf2f86b97fba0353a1))
-- *(client)* Replace D3D9 device proxy with vtable hooks + fallback poll - ([30c9a66](https://github.com/aurora-mp/omp-cef/commit/30c9a66ec3ede94d3b6678cf2f86b97fba0353a1))
-- *(client)* Replace D3D9 device proxy with vtable hooks + fallback poll - ([30c9a66](https://github.com/aurora-mp/omp-cef/commit/30c9a66ec3ede94d3b6678cf2f86b97fba0353a1))
-- *(client)* Replace D3D9 device proxy with vtable hooks + fallback poll - ([30c9a66](https://github.com/aurora-mp/omp-cef/commit/30c9a66ec3ede94d3b6678cf2f86b97fba0353a1))
-- Replace d3ddevice9 cursor forcing with Win32 SetCursor hook - ([69218f3](https://github.com/aurora-mp/omp-cef/commit/69218f3377411dbdcd6b48176e3dcefdab260b2e))
-- Replace d3ddevice9 cursor forcing with Win32 SetCursor hook - ([69218f3](https://github.com/aurora-mp/omp-cef/commit/69218f3377411dbdcd6b48176e3dcefdab260b2e))
 - Replace d3ddevice9 cursor forcing with Win32 SetCursor hook - ([69218f3](https://github.com/aurora-mp/omp-cef/commit/69218f3377411dbdcd6b48176e3dcefdab260b2e))
 - This should not negatively impact compatibility with other mods, since it reduces the intervention surface - ([30c9a66](https://github.com/aurora-mp/omp-cef/commit/30c9a66ec3ede94d3b6678cf2f86b97fba0353a1))
 
@@ -305,32 +225,6 @@
 - *(client)* UI browsers not rendering (OnPresent executed after Present) - ([0e9f262](https://github.com/aurora-mp/omp-cef/commit/0e9f262df8dc481ba3c09810bd2d01cee5377adb))
 - *(client)* Fix some crashes, handle device lost/reset and avoid rendering during reset , improvements #4, #6 - ([6734002](https://github.com/aurora-mp/omp-cef/commit/6734002bd5bbb9f14870221ca5876c3904bfec4f))
 - *(client)* Improvements & make D3D9 hooking robust across setups (Direct3DCreate9 + CreateDevice) #6 - ([c05ccdf](https://github.com/aurora-mp/omp-cef/commit/c05ccdf713879601f10253d450b593348a214a33))
-
-### 🔄 Others
-
-- *(client)* Improve DevTools, removed the DevTools shortcut (it was for easy debugging) #3 - ([a488d0d](https://github.com/aurora-mp/omp-cef/commit/a488d0ddfbbefbbc52442e5c440289c6ea2e5dc7))
-- *(client)* Improve DevTools, removed the DevTools shortcut (it was for easy debugging) #3 - ([a488d0d](https://github.com/aurora-mp/omp-cef/commit/a488d0ddfbbefbbc52442e5c440289c6ea2e5dc7))
-- *(client)* Improve DevTools, removed the DevTools shortcut (it was for easy debugging) #3 - ([a488d0d](https://github.com/aurora-mp/omp-cef/commit/a488d0ddfbbefbbc52442e5c440289c6ea2e5dc7))
-- *(client)* Fix some crashes, handle device lost/reset and avoid rendering during reset , improvements #4, #6 - ([6734002](https://github.com/aurora-mp/omp-cef/commit/6734002bd5bbb9f14870221ca5876c3904bfec4f))
-- *(client)* Fix some crashes, handle device lost/reset and avoid rendering during reset , improvements #4, #6 - ([6734002](https://github.com/aurora-mp/omp-cef/commit/6734002bd5bbb9f14870221ca5876c3904bfec4f))
-- *(client)* Fix some crashes, handle device lost/reset and avoid rendering during reset , improvements #4, #6 - ([6734002](https://github.com/aurora-mp/omp-cef/commit/6734002bd5bbb9f14870221ca5876c3904bfec4f))
-- *(client)* Fix some crashes, handle device lost/reset and avoid rendering during reset , improvements #4, #6 - ([6734002](https://github.com/aurora-mp/omp-cef/commit/6734002bd5bbb9f14870221ca5876c3904bfec4f))
-- *(client)* Fix some crashes, handle device lost/reset and avoid rendering during reset , improvements #4, #6 - ([6734002](https://github.com/aurora-mp/omp-cef/commit/6734002bd5bbb9f14870221ca5876c3904bfec4f))
-- *(client)* Fix some crashes, handle device lost/reset and avoid rendering during reset , improvements #4, #6 - ([6734002](https://github.com/aurora-mp/omp-cef/commit/6734002bd5bbb9f14870221ca5876c3904bfec4f))
-- *(client)* Fix some crashes, handle device lost/reset and avoid rendering during reset , improvements #4, #6 - ([6734002](https://github.com/aurora-mp/omp-cef/commit/6734002bd5bbb9f14870221ca5876c3904bfec4f))
-- *(client)* Fix some crashes, handle device lost/reset and avoid rendering during reset , improvements #4, #6 - ([6734002](https://github.com/aurora-mp/omp-cef/commit/6734002bd5bbb9f14870221ca5876c3904bfec4f))
-- *(client)* Fix some crashes, handle device lost/reset and avoid rendering during reset , improvements #4, #6 - ([6734002](https://github.com/aurora-mp/omp-cef/commit/6734002bd5bbb9f14870221ca5876c3904bfec4f))
-- *(client)* Improvements & make D3D9 hooking robust across setups (Direct3DCreate9 + CreateDevice) #6 - ([c05ccdf](https://github.com/aurora-mp/omp-cef/commit/c05ccdf713879601f10253d450b593348a214a33))
-- *(client)* Improvements & make D3D9 hooking robust across setups (Direct3DCreate9 + CreateDevice) #6 - ([c05ccdf](https://github.com/aurora-mp/omp-cef/commit/c05ccdf713879601f10253d450b593348a214a33))
-- *(client)* Improvements & make D3D9 hooking robust across setups (Direct3DCreate9 + CreateDevice) #6 - ([c05ccdf](https://github.com/aurora-mp/omp-cef/commit/c05ccdf713879601f10253d450b593348a214a33))
-- *(client)* Improvements & make D3D9 hooking robust across setups (Direct3DCreate9 + CreateDevice) #6 - ([c05ccdf](https://github.com/aurora-mp/omp-cef/commit/c05ccdf713879601f10253d450b593348a214a33))
-- *(client)* Improvements & make D3D9 hooking robust across setups (Direct3DCreate9 + CreateDevice) #6 - ([c05ccdf](https://github.com/aurora-mp/omp-cef/commit/c05ccdf713879601f10253d450b593348a214a33))
-- *(client)* Improvements & make D3D9 hooking robust across setups (Direct3DCreate9 + CreateDevice) #6 - ([c05ccdf](https://github.com/aurora-mp/omp-cef/commit/c05ccdf713879601f10253d450b593348a214a33))
-- *(client)* Improvements & make D3D9 hooking robust across setups (Direct3DCreate9 + CreateDevice) #6 - ([c05ccdf](https://github.com/aurora-mp/omp-cef/commit/c05ccdf713879601f10253d450b593348a214a33))
-
-
-
-
 
 ## [1.0.1](https://github.com/aurora-mp/omp-cef/compare/v1.0.0..v1.0.1) (2026-01-30)
 
@@ -408,9 +302,6 @@
 - Merge branch 'main' of https://github.com/aurora-mp/omp-cef - ([2f370c1](https://github.com/aurora-mp/omp-cef/commit/2f370c18ec7fb3776d4ab2e719cbd0890d39631f))
 - Merge branch 'main' of https://github.com/aurora-mp/omp-cef - ([39691d4](https://github.com/aurora-mp/omp-cef/commit/39691d49db1c21214d8c997f2eb0fe105b10e8f4))
 - Merge branch 'main' of https://github.com/aurora-mp/omp-cef - ([809a444](https://github.com/aurora-mp/omp-cef/commit/809a444d1c72b05efd8f36ec14feb79dff7f99ce))
-- Create README - ([ef40070](https://github.com/aurora-mp/omp-cef/commit/ef4007031d6a1773fd2dbb027cef1990aef1c7c1))
-- Avoid deadlock when emitting events during KCP processing - ([d97ea0d](https://github.com/aurora-mp/omp-cef/commit/d97ea0d19179859c4c91167deb5f0c2b2e474227))
-- Avoid deadlock when emitting events during KCP processing - ([d97ea0d](https://github.com/aurora-mp/omp-cef/commit/d97ea0d19179859c4c91167deb5f0c2b2e474227))
 
 ## New Contributors ❤️
 

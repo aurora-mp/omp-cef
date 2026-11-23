@@ -79,11 +79,13 @@ conventional_commits = true
 # Exclude commits that do not match the conventional commits specification.
 filter_unconventional = true
 # Split commits on newlines, treating each line as an individual commit.
-split_commits = true
+split_commits = false
 # An array of regex based parsers for extracting data from the commit message.
 # Assigns commits to groups.
 # Optionally sets the commit's scope and can decide to exclude commits from further processing.
 commit_parsers = [
+  # Temporary commits reverted before the release (e.g. "ci: ... (tmp)").
+  { message = "\(tmp\)$", skip = true },
   { message = "^feat", group = "<!-- 1 -->✨ Features"},
   { message = "^fix", group = "<!-- 2 -->🐛 Bug Fixes"},
   { message = "^docs", group = "<!-- 0 -->📖 Documentation"},
