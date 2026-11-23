@@ -89,6 +89,8 @@ void App::Initialize()
 
 void App::ResetSession()
 {
+    ClearIncomingPackets();
+
     // Clear pending actions
     {
         std::lock_guard<std::mutex> lock(pending_creates_mutex_);
@@ -170,6 +172,8 @@ void App::FlushPendingIfReady()
 
 void App::Tick()
 {
+    DrainIncomingPackets();
+
     const auto now = ::GetTickCount64();
     auto* netGame = GetComponent<NetGameComponent>();
 
@@ -386,6 +390,44 @@ void App::QueueOrCreateWorld2D(int id, const std::string& url, float worldX, flo
 
 void App::OnPacketReceived(const NetworkPacket& packet)
 {
+    if (packet.type == PacketType::FileData)
+    {
+        resources_.OnFileData(std::get<FileDataPacket>(packet.payload));
+        return;
+    }
+
+    static constexpr size_t kMaxIncomingPackets = 16384;
+
+    std::lock_guard<std::mutex> lock(incoming_packets_mutex_);
+    if (incoming_packets_.size() >= kMaxIncomingPackets)
+    {
+        LOG_WARN("[CEF] Incoming packet queue is full, dropping packet type {}.", static_cast<int>(packet.type));
+        return;
+    }
+
+    incoming_packets_.push_back(packet);
+}
+
+void App::DrainIncomingPackets()
+{
+    std::deque<NetworkPacket> packets;
+    {
+        std::lock_guard<std::mutex> lock(incoming_packets_mutex_);
+        packets.swap(incoming_packets_);
+    }
+
+    for (const auto& packet : packets)
+        HandlePacket(packet);
+}
+
+void App::ClearIncomingPackets()
+{
+    std::lock_guard<std::mutex> lock(incoming_packets_mutex_);
+    incoming_packets_.clear();
+}
+
+void App::HandlePacket(const NetworkPacket& packet)
+{
     switch (packet.type)
     {
         case PacketType::ServerConfig:
@@ -394,11 +436,6 @@ void App::OnPacketReceived(const NetworkPacket& packet)
             resources_.SetMasterKey(cfg.master_resource_key);
             resources_.SetResourcesLoaderUiEnabled(cfg.resources_loader_ui);
             resources_.MarkAsReadyToDownload();
-            break;
-        }
-        case PacketType::FileData:
-        {
-            resources_.OnFileData(std::get<FileDataPacket>(packet.payload));
             break;
         }
         case PacketType::EmitEvent:

@@ -3,6 +3,7 @@
 #include "shared/packet.hpp"
 #include "network/network_manager.hpp"
 
+#include <deque>
 #include <string>
 #include <mutex>
 #include <vector>
@@ -65,6 +66,10 @@ public:
     void OnPacketReceived(const NetworkPacket& packet);
 
 private:
+    void DrainIncomingPackets();
+    void HandlePacket(const NetworkPacket& packet);
+    void ClearIncomingPackets();
+
     void ResetSession();
 
     bool ResourcesReady() const;
@@ -101,4 +106,7 @@ private:
     std::vector<PendingEmit> pending_emits_;
 
     bool pending_clear_chat_ = false;
+
+    std::mutex incoming_packets_mutex_;
+    std::deque<NetworkPacket> incoming_packets_;
 };
