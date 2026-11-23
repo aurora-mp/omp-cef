@@ -18,6 +18,21 @@ jobs:
       - uses: actions/checkout@v4
         with: { submodules: recursive }
 
+      - name: Install CMake 4.4.4
+        shell: pwsh
+        run: |
+          $version = "4.4.4"
+          $sha256 = "bace36e94b31c68ab6fa295f26dfa11219e0701cf7c94b0284a7d1cb13dac536"
+          $name = "cmake-$version-windows-x86_64"
+          $zip = Join-Path $env:RUNNER_TEMP "$name.zip"
+          Invoke-WebRequest "https://github.com/Kitware/CMake/releases/download/v$version/$name.zip" -OutFile $zip
+          $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $sha256) { throw "CMake checksum mismatch: $actual" }
+          Expand-Archive $zip -DestinationPath $env:RUNNER_TEMP
+          $bin = Join-Path $env:RUNNER_TEMP "$name\bin"
+          Add-Content -Path $env:GITHUB_PATH -Value $bin
+          & (Join-Path $bin "cmake.exe") --version
+
       - name: Cache vcpkg (archives + installed)
         uses: actions/cache@v4
         id: cache-vcpkg
