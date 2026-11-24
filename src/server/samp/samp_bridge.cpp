@@ -39,10 +39,10 @@ void SampPlatformBridge::CallPawnPublic(const std::string& name, const std::vect
         if (amx_FindPublic(amx, name.c_str(), &idx) != AMX_ERR_NONE)
             continue;
 
-        cell heap_addr_before_push = 0;
-        bool string_pushed = false;
+        const cell heap_before = amx->hea;
+        int error = AMX_ERR_NONE;
 
-        for (auto it = args.rbegin(); it != args.rend(); ++it)
+        for (auto it = args.rbegin(); it != args.rend() && error == AMX_ERR_NONE; ++it)
         {
             const auto& arg = *it;
             switch (arg.type)
@@ -50,39 +50,32 @@ void SampPlatformBridge::CallPawnPublic(const std::string& name, const std::vect
                 case ArgumentType::String:
                 {
                     cell amx_addr = 0;
-                    
                     std::string ansi_string = Utf8ToAnsi(arg.stringValue);
-                    amx_PushString(amx, &amx_addr, NULL, ansi_string.c_str(), 0, 0);
-
-                    if (!string_pushed) {
-                        heap_addr_before_push = amx_addr;
-                        string_pushed = true;
-                    }
+                    error = amx_PushString(amx, &amx_addr, NULL, ansi_string.c_str(), 0, 0);
                     break;
                 }
                 case ArgumentType::Integer:
-                    amx_Push(amx, arg.intValue);
+                    error = amx_Push(amx, arg.intValue);
                     break;
                 case ArgumentType::Float:
-                    amx_Push(amx, amx_ftoc(arg.floatValue));
+                    error = amx_Push(amx, amx_ftoc(arg.floatValue));
                     break;
                 case ArgumentType::Bool:
-                    amx_Push(amx, arg.boolValue);
+                    error = amx_Push(amx, arg.boolValue);
                     break;
             }
         }
 
-        cell ret;
-        int error = amx_Exec(amx, &ret, idx);
-        if (error != AMX_ERR_NONE)
+        if (error == AMX_ERR_NONE)
         {
-            // TODO
+            cell ret;
+            error = amx_Exec(amx, &ret, idx);
         }
 
-        if (string_pushed)
-        {
-            amx_Release(amx, heap_addr_before_push);
-        }
+        amx_Release(amx, heap_before);
+
+        if (error != AMX_ERR_NONE)
+            LogError("Failed to call " + name + " (AMX error " + std::to_string(error) + ").");
     }
 }
 
@@ -94,17 +87,21 @@ void SampPlatformBridge::CallOnBrowserCreated(int playerid, int browserId, bool 
         if (amx_FindPublic(amx, "OnCefBrowserCreated", &idx) != AMX_ERR_NONE) 
             continue;
 
+        const cell heap_before = amx->hea;
         cell reason_addr = 0;
 
-        amx_PushString(amx, &reason_addr, NULL, reason.c_str(), 0, 0);
-        amx_Push(amx, code);
-        amx_Push(amx, success);
-        amx_Push(amx, browserId);
-        amx_Push(amx, playerid);
+        if (amx_PushString(amx, &reason_addr, NULL, reason.c_str(), 0, 0) == AMX_ERR_NONE)
+        {
+            amx_Push(amx, code);
+            amx_Push(amx, success);
+            amx_Push(amx, browserId);
+            amx_Push(amx, playerid);
 
-        cell retval;
-        amx_Exec(amx, &retval, idx);
-        amx_Release(amx, reason_addr);
+            cell retval;
+            amx_Exec(amx, &retval, idx);
+        }
+
+        amx_Release(amx, heap_before);
     }
 }
 
@@ -148,12 +145,17 @@ void SampPlatformBridge::CallOnDownloadProgress(
         amx_Push(amx, fileDownloadedKb);
         amx_Push(amx, totalPercent);
         amx_Push(amx, filePercent);
-        amx_PushString(amx, &file_name_addr, NULL, ansi_file_name.c_str(), 0, 0);
-        amx_Push(amx, playerid);
+        const cell heap_before = amx->hea;
 
-        cell retval;
-        amx_Exec(amx, &retval, idx);
-        amx_Release(amx, file_name_addr);
+        if (amx_PushString(amx, &file_name_addr, NULL, ansi_file_name.c_str(), 0, 0) == AMX_ERR_NONE)
+        {
+            amx_Push(amx, playerid);
+
+            cell retval;
+            amx_Exec(amx, &retval, idx);
+        }
+
+        amx_Release(amx, heap_before);
     }
 }
 
