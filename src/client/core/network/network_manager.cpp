@@ -110,7 +110,24 @@ void NetworkManager::Connect(int playerid)
 		if (!network_thread_.joinable()) {
 			network_thread_ = std::thread([this]() {
 				LOG_INFO("[CLIENT] Network thread started.");
-				io_context_.run();
+
+				for (;;)
+				{
+					try
+					{
+						io_context_.run();
+						break;
+					}
+					catch (const std::exception& e)
+					{
+						LOG_ERROR("[CLIENT] Exception on the network thread: {}", e.what());
+					}
+					catch (...)
+					{
+						LOG_ERROR("[CLIENT] Unknown exception on the network thread.");
+					}
+				}
+
 				LOG_INFO("[CLIENT] Network thread finished.");
 			});
 		}
@@ -243,6 +260,13 @@ void NetworkManager::HandleRawMessage(const char* data, size_t len)
 			state_ = ConnectionState::AWAITING_ACCEPTANCE;
 
 			const auto& challenge = std::get<HandshakeChallengePacket>(packet.payload);
+			if (challenge.server_public_key.size() != crypto_kx_PUBLICKEYBYTES)
+			{
+				LOG_ERROR("[CLIENT] Invalid server public key ({} bytes). Disconnecting.", challenge.server_public_key.size());
+				Disconnect();
+				return;
+			}
+
 			HandshakeFinalizePacket finalize_pkt;
 			finalize_pkt.cookie = challenge.cookie;
 			finalize_pkt.client_public_key = client_public_key_;

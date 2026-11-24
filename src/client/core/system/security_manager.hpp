@@ -40,6 +40,13 @@ public:
         const std::vector<uint8_t>& client_sk,
         const std::vector<uint8_t>& server_pk)
     {
+        if (client_pk.size() != crypto_kx_PUBLICKEYBYTES ||
+            client_sk.size() != crypto_kx_SECRETKEYBYTES ||
+            server_pk.size() != crypto_kx_PUBLICKEYBYTES)
+        {
+            return {};
+        }
+
         SessionKeys session_keys;
         session_keys.rx.resize(crypto_kx_SESSIONKEYBYTES);
         session_keys.tx.resize(crypto_kx_SESSIONKEYBYTES);
