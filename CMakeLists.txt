@@ -19,6 +19,12 @@ endif()
 if (MSVC)
 	# /MT (Release) and /MTd (Debug) - consistent with x86-windows-static triplet.
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+	# Release builds also produce separate .pdb files, published with each release, so crash
+	# dumps from players can be symbolized. /OPT:REF and /OPT:ICF keep the binaries as small
+	# as without /DEBUG.
+	add_compile_options($<$<CONFIG:Release>:/Zi>)
+	add_link_options($<$<CONFIG:Release>:/DEBUG> $<$<CONFIG:Release>:/OPT:REF> $<$<CONFIG:Release>:/OPT:ICF>)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH
