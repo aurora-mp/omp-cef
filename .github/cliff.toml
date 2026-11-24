@@ -85,7 +85,7 @@ split_commits = false
 # Optionally sets the commit's scope and can decide to exclude commits from further processing.
 commit_parsers = [
   # Temporary commits reverted before the release (e.g. "ci: ... (tmp)").
-  { message = "\(tmp\)$", skip = true },
+  { message = '\(tmp\)$', skip = true },
   { message = "^feat", group = "<!-- 1 -->✨ Features"},
   { message = "^fix", group = "<!-- 2 -->🐛 Bug Fixes"},
   { message = "^docs", group = "<!-- 0 -->📖 Documentation"},
