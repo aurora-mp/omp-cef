@@ -102,6 +102,9 @@ private:
     bool IsGameDeviceCandidate(const D3DPRESENT_PARAMETERS* pp, HWND presentHwnd) const noexcept;
 
     static bool IsReadablePointer(const void* ptr, size_t bytes) noexcept;
+    static bool IsVtableInModule(const void* object, HMODULE module) noexcept;
+
+    IDirect3DDevice9* ResolveRealDevice(IDirect3DDevice9* device) noexcept;
 
 private:
     static inline RenderManager* s_self_ = nullptr;
@@ -152,4 +155,5 @@ private:
 
     // Poll throttling
     uint64_t last_poll_ms_ = 0;
+    bool warned_unresolved_proxy_ = false;
 };

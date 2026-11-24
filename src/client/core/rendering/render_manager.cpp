@@ -134,8 +134,8 @@ namespace
             flags,
             &pp,
             &dev);
+        const HRESULT hal_hr = hr;
 
-        // Fallback: REF if HAL fails (rare, but better than failing bootstrap entirely)
         if (FAILED(hr) || !dev)
         {
             hr = d3d->CreateDevice(
@@ -151,7 +151,11 @@ namespace
         d3d->Release();
 
         if (FAILED(hr) || !dev)
+        {
+            LOG_WARN("[D3D9] Dummy device creation failed: HAL hr={:#010x}, REF hr={:#010x}",
+                static_cast<uint32_t>(hal_hr), static_cast<uint32_t>(hr));
             return false;
+        }
 
         *outDevice = dev;
         return true;
@@ -267,10 +271,96 @@ void RenderManager::PollD3D() noexcept
     if (!game_device || !IsReadablePointer(game_device, sizeof(void*)))
         return;
 
-    TryCaptureDeviceFromPointer(game_device);
+    // The GTA global may hold a proxy device (SA-MP wraps the game device)
+    IDirect3DDevice9* device = ResolveRealDevice(game_device);
+
+    if (TryCaptureDeviceFromPointer(device) && device != game_device)
+        LOG_INFO("[D3D9] Unwrapped proxy device: proxy={}, device={}", (void*)game_device, (void*)device);
 
     // Ensure hooks are installed for THIS device class (some wrappers use unique thunks)
-    EnsureDeviceHooksInstalled(game_device);
+    EnsureDeviceHooksInstalled(device);
+}
+
+bool RenderManager::IsVtableInModule(const void* object, HMODULE module) noexcept
+{
+    if (!object || !module || !IsReadablePointer(object, sizeof(void*)))
+        return false;
+
+    void* const* vtable = *reinterpret_cast<void* const* const*>(object);
+    if (!vtable || !IsReadablePointer(vtable, sizeof(void*) * (idxEndScene + 1)))
+        return false;
+
+    for (const size_t index : { size_t{ 0 }, idxReset, idxPresent, idxBeginScene, idxEndScene })
+    {
+        HMODULE owner = nullptr;
+        if (!::GetModuleHandleExA(
+                GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                static_cast<LPCSTR>(vtable[index]),
+                &owner) || owner != module)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+IDirect3DDevice9* RenderManager::ResolveRealDevice(IDirect3DDevice9* device) noexcept
+{
+    const HMODULE d3d9 = ::GetModuleHandleA("d3d9.dll");
+    if (!d3d9 || IsVtableInModule(device, d3d9))
+        return device;
+
+    {
+        IDirect3DSwapChain9* swap_chain = nullptr;
+        if (SUCCEEDED(device->GetSwapChain(0, &swap_chain)) && swap_chain)
+        {
+            IDirect3DDevice9* owner = nullptr;
+            const HRESULT hr = swap_chain->GetDevice(&owner);
+            swap_chain->Release();
+
+            if (SUCCEEDED(hr) && owner)
+            {
+                owner->Release(); // The proxy keeps it alive, we only need the pointer
+
+                if (owner != device && IsVtableInModule(owner, d3d9))
+                    return owner;
+            }
+        }
+    }
+
+    constexpr size_t kMaxScannedFields = 32;
+    void* const* fields = reinterpret_cast<void* const*>(device);
+
+    for (size_t i = 1; i < kMaxScannedFields; ++i)
+    {
+        if (!IsReadablePointer(&fields[i], sizeof(void*)))
+            break;
+
+        void* candidate = fields[i];
+        if (!candidate || candidate == device || !IsVtableInModule(candidate, d3d9))
+            continue;
+
+        // QueryInterface is slot 0 of every COM interface, so this is safe on any d3d9 object.
+        // IID_IDirect3DDevice9, defined here to avoid linking dxguid.lib.
+        static constexpr GUID kIidDevice9 = { 0xd0223b96, 0xbf7a, 0x43fd, { 0x92, 0xbd, 0xa4, 0x3b, 0x0d, 0x82, 0xb9, 0xeb } };
+
+        IDirect3DDevice9* real = nullptr;
+        if (SUCCEEDED(static_cast<IUnknown*>(candidate)->QueryInterface(kIidDevice9, reinterpret_cast<void**>(&real))) && real)
+        {
+            real->Release();
+            if (real == candidate)
+                return real;
+        }
+    }
+
+    if (!warned_unresolved_proxy_)
+    {
+        warned_unresolved_proxy_ = true;
+        LOG_WARN("[D3D9] Game device {} is not a d3d9.dll device and no wrapped device was found. Other UI may be drawn over the overlay.", (void*)device);
+    }
+
+    return device;
 }
 
 void RenderManager::AttachDevice(IDirect3D9* direct, IDirect3DDevice9* device, const D3DPRESENT_PARAMETERS& params) noexcept
