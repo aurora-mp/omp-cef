@@ -294,7 +294,7 @@ void Runtime::FinalizeInitialization(HWND hwnd)
 
             if (msg == WM_SETCURSOR)
             {
-                if (browser_ && browser_->IsAnyBrowserFocused() && ::GetForegroundWindow() == h)
+                if (browser_ && browser_->IsBrowserInputActive() && ::GetForegroundWindow() == h)
                 {
                     ::SetCursor(::LoadCursor(nullptr, IDC_ARROW));
                     return { TRUE };

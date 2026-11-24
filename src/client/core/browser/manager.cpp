@@ -1816,6 +1816,11 @@ bool BrowserManager::IsAnyBrowserVisible() const
     return false;
 }
 
+bool BrowserManager::IsBrowserInputActive() const
+{
+    return !escape_menu_.IsNativePauseMenuVisible() && IsAnyBrowserFocused();
+}
+
 bool BrowserManager::IsAnyBrowserFocused() const
 {
     BrowsersLock browsers_lock(browsers_mutex_);
@@ -2358,6 +2363,12 @@ LRESULT BrowserManager::OnWndProcMessage(HWND hwnd, UINT msg, WPARAM wParam, LPA
     {
         DispatchNativeUiEvents();
         return true;
+    }
+
+    if (escape_menu_.IsNativePauseMenuVisible())
+    {
+        CancelDrag();
+        return false;
     }
 
     if (msg == WM_KEYDOWN || msg == WM_KEYUP || msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP)

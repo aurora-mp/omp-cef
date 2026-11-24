@@ -197,6 +197,8 @@ public:
     CefRect GetBrowserViewRect(int id);
     bool IsAnyBrowserVisible() const;
     bool IsAnyBrowserFocused() const;
+    bool IsBrowserInputActive() const;
+    
     cef_cursor_type_t GetCursorType() const
     {
         return cursor_type_;

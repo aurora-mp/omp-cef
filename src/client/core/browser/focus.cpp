@@ -10,7 +10,7 @@ void FocusManager::Update()
     if (!game)
         return;
 
-    const bool is_cef_focused_now = manager_.IsAnyBrowserFocused();
+    const bool is_cef_focused_now = manager_.IsBrowserInputActive();
     const bool force_resync = force_resync_.exchange(false);
     const bool entered_cef_focus = is_cef_focused_now && !was_cef_focused_last_frame_;
     const bool left_cef_focus = !is_cef_focused_now && was_cef_focused_last_frame_;
