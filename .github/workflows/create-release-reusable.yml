@@ -131,6 +131,10 @@ jobs:
             mv temp-assets/client-files-v${{ inputs.version }}/* release-assets/
           fi
 
+          if [[ -d "temp-assets/client-symbols-v${{ inputs.version }}" ]]; then
+            mv temp-assets/client-symbols-v${{ inputs.version }}/* release-assets/
+          fi
+
           if [[ -d "temp-assets/individual-files-v${{ inputs.version }}" ]]; then
             mv temp-assets/individual-files-v${{ inputs.version }}/cef.asi release-assets/ || true
             mv temp-assets/individual-files-v${{ inputs.version }}/cef/client.dll release-assets/ || true

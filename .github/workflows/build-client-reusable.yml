@@ -94,6 +94,20 @@ jobs:
           cp "$LOADER_ASI" package/cef.asi
           cp "$RENDERER_EXE" package/cef/renderer.exe
 
+      - name: Package client symbols
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # PDB files are published separately (not in the player package) to symbolize crash dumps.
+          rm -rf symbols && mkdir -p symbols
+          for dir in core loader renderer; do
+            find "build/src/client/${dir}/${{ inputs.build-type }}" -maxdepth 1 -name '*.pdb' -exec cp {} symbols/ \;
+          done
+
+          ls -l symbols
+          test -n "$(ls symbols/*.pdb 2>/dev/null)" || (echo "No client PDB found" && exit 1)
+
       - name: Compress client files
         shell: pwsh
         run: Compress-Archive -Path package/* -DestinationPath client-files-v${{ inputs.version }}.zip -Force
@@ -103,6 +117,16 @@ jobs:
         with:
           name: client-files-v${{ inputs.version }}
           path: client-files-v${{ inputs.version }}.zip
+
+      - name: Compress client symbols
+        shell: pwsh
+        run: Compress-Archive -Path symbols/* -DestinationPath client-symbols-v${{ inputs.version }}.zip -Force
+
+      - name: Upload Client Symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-symbols-v${{ inputs.version }}
+          path: client-symbols-v${{ inputs.version }}.zip
 
       - name: Upload Individual Files
         uses: actions/upload-artifact@v4
