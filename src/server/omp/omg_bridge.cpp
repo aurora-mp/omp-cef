@@ -47,7 +47,10 @@ void OmpPlatformBridge::CallPawnPublic(const std::string& name, const std::vecto
         if (script->FindPublic(name.c_str(), &idx) != AMX_ERR_NONE)
             return;
 
-        for (auto it = args.rbegin(); it != args.rend(); ++it)
+        const cell heap_before = script->GetHEA();
+        int error = AMX_ERR_NONE;
+
+        for (auto it = args.rbegin(); it != args.rend() && error == AMX_ERR_NONE; ++it)
         {
             const auto& arg = *it;
             switch (arg.type)
@@ -55,23 +58,32 @@ void OmpPlatformBridge::CallPawnPublic(const std::string& name, const std::vecto
                 case ArgumentType::String:
                 {
                     std::string ansi_string = Utf8ToAnsi(arg.stringValue);
-                    script->PushString(nullptr, nullptr, ansi_string, false, false);
+                    cell amx_addr = 0;
+                    error = script->PushString(&amx_addr, nullptr, ansi_string, false, false);
                     break;
                 }
                 case ArgumentType::Integer:
-                    script->Push(arg.intValue);
+                    error = script->Push(arg.intValue);
                     break;
                 case ArgumentType::Float:
-                    script->Push(amx_ftoc(arg.floatValue));
+                    error = script->Push(amx_ftoc(arg.floatValue));
                     break;
                 case ArgumentType::Bool:
-                    script->Push(arg.boolValue);
+                    error = script->Push(arg.boolValue);
                     break;
             }
         }
 
-        cell retval;
-        script->Exec(&retval, idx);
+        if (error == AMX_ERR_NONE)
+        {
+            cell retval;
+            error = script->Exec(&retval, idx);
+        }
+
+        script->Release(heap_before);
+
+        if (error != AMX_ERR_NONE)
+            LogError("Failed to call " + name + " (AMX error " + std::to_string(error) + ").");
     };
 
     call_on_script(pawn_->mainScript());
