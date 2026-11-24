@@ -1,4 +1,34 @@
 
+## [1.4.2](https://github.com/aurora-mp/omp-cef/compare/v1.4.1..v1.4.2) (2026-11-24)
+
+### 🧹 Chore
+
+- Bump version to 1.4.2 - ([ab18764](https://github.com/aurora-mp/omp-cef/commit/ab18764c528e3cfa84fe463976216f2f7891c2e5))
+- Stop duplicating entries in the changelog - ([49a51bf](https://github.com/aurora-mp/omp-cef/commit/49a51bf31a50b5d116da937e7e5e9bee4d1a956f))
+
+### 🐛 Bug Fixes
+
+- *(ci)* Use a literal string for the git-cliff tmp parser - ([609a5d9](https://github.com/aurora-mp/omp-cef/commit/609a5d905933cd1cd46084d505988f8c387413b2))
+- *(client)* Hook the real d3d9 device when SA-MP wraps it (#66) - ([7830fdf](https://github.com/aurora-mp/omp-cef/commit/7830fdfb0e9cb5ecbc90ee9cbc3a0afe8c1b3f0e))
+- *(client)* Block popups and non web navigations - ([3e6e09b](https://github.com/aurora-mp/omp-cef/commit/3e6e09b1cfb2178771a39d8c80db3bc3f4a69bd3))
+- *(client)* Reject server public keys of the wrong size - ([554ef77](https://github.com/aurora-mp/omp-cef/commit/554ef773494aa25875b114174fbedda179231626))
+- *(client)* Give the pause menu its mouse back - ([192062b](https://github.com/aurora-mp/omp-cef/commit/192062b63087e47707da8e7eb87e3f9054def0f3))
+- *(client)* Stop crashing on game exit - ([5f59e25](https://github.com/aurora-mp/omp-cef/commit/5f59e25d0554a6d789ec2b7a6e756d4b0b39327d))
+- *(net)* Bound length prefixed fields before allocating - ([f1c7b03](https://github.com/aurora-mp/omp-cef/commit/f1c7b03b8f87cb5d9706a6a0c5f2b390ba677f5a))
+- *(omp)* Release the script heap after calling Pawn publics - ([5a98a01](https://github.com/aurora-mp/omp-cef/commit/5a98a01658e41385b03609f7dee62e37ff945707))
+- *(samp)* Restore the script heap safely after Pawn calls - ([db668d4](https://github.com/aurora-mp/omp-cef/commit/db668d45f5d17841807573e65eddc5d55c7f0252))
+
+### 🤖 CI
+
+- *(client)* Publish PDB symbols with each release - ([80b661f](https://github.com/aurora-mp/omp-cef/commit/80b661fd390dd7407650bb7516c369967d51e281))
+
+### ✅ Testing
+
+- *(demo)* Add /issue66 to check overlay order against SA-MP 2D - ([f33e353](https://github.com/aurora-mp/omp-cef/commit/f33e353079ca716e0253eb106c3a103b15bff495))
+
+
+
+
 ## [1.4.1](https://github.com/aurora-mp/omp-cef/compare/v1.4.0..v1.4.1) (2026-11-23)
 
 ### 📖 Documentation
