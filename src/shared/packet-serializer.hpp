@@ -2,6 +2,17 @@
 
 #include "packet.hpp"
 
+inline constexpr uint32_t kMaxCookieBytes = 64; // encrypted IPv4 + port, nonce and MAC
+inline constexpr uint32_t kMaxPublicKeyBytes = 32; // crypto_kx_PUBLICKEYBYTES
+inline constexpr uint32_t kMaxResourceKeyBytes = 64;
+inline constexpr uint32_t kMaxFileChunkBytes = 64 * 1024;
+
+static inline size_t RemainingBytes(std::istream& is)
+{
+	const std::streamsize available = is.rdbuf() ? is.rdbuf()->in_avail() : 0;
+	return available > 0 ? static_cast<size_t>(available) : 0;
+}
+
 static inline void WriteString(std::ostream& os, const std::string& str)
 {
 	uint16_t length = static_cast<uint16_t>(str.length());
@@ -24,6 +35,9 @@ static inline bool ReadString(std::istream& is, std::string& str)
 
 	is.read(reinterpret_cast<char*>(&length), sizeof(length));
 	if (is.gcount() != sizeof(length))
+		return false;
+
+	if (length > RemainingBytes(is))
 		return false;
 
 	if (length > 0) {
@@ -51,12 +65,15 @@ static inline void WriteBytes(std::ostream& os, const std::vector<uint8_t>& byte
 	}
 }
 
-static inline bool ReadBytes(std::istream& is, std::vector<uint8_t>& bytes)
+static inline bool ReadBytes(std::istream& is, std::vector<uint8_t>& bytes, uint32_t max_length)
 {
 	uint32_t length = 0;
 
 	is.read(reinterpret_cast<char*>(&length), sizeof(length));
 	if (is.gcount() != sizeof(length))
+		return false;
+
+	if (length > max_length || length > RemainingBytes(is))
 		return false;
 
 	if (length > 0) {
@@ -219,10 +236,10 @@ inline bool DeserializePacket(const char* data, size_t size, NetworkPacket& out)
 		case PacketType::HandshakeChallenge: {
 			HandshakeChallengePacket packet{};
 
-			if (!ReadBytes(is, packet.cookie))
+			if (!ReadBytes(is, packet.cookie, kMaxCookieBytes))
 				return false;
 
-			if (!ReadBytes(is, packet.server_public_key))
+			if (!ReadBytes(is, packet.server_public_key, kMaxPublicKeyBytes))
 				return false;
 
 			out.payload = packet;
@@ -231,10 +248,10 @@ inline bool DeserializePacket(const char* data, size_t size, NetworkPacket& out)
 		case PacketType::HandshakeFinalize: {
 			HandshakeFinalizePacket packet{};
 
-			if (!ReadBytes(is, packet.cookie))
+			if (!ReadBytes(is, packet.cookie, kMaxCookieBytes))
 				return false;
 
-			if (!ReadBytes(is, packet.client_public_key))
+			if (!ReadBytes(is, packet.client_public_key, kMaxPublicKeyBytes))
 				return false;
 
 			out.payload = packet;
@@ -292,7 +309,7 @@ inline bool DeserializePacket(const char* data, size_t size, NetworkPacket& out)
 		case PacketType::ServerConfig: {
 			ServerConfigPacket packet{};
 
-			if (!ReadBytes(is, packet.master_resource_key))
+			if (!ReadBytes(is, packet.master_resource_key, kMaxResourceKeyBytes))
 				return false;
 
 			char b = 0;
@@ -346,7 +363,7 @@ inline bool DeserializePacket(const char* data, size_t size, NetworkPacket& out)
 			if (is.gcount() != sizeof(packet.totalChunks))
 				return false;
 
-			if (!ReadBytes(is, packet.data))
+			if (!ReadBytes(is, packet.data, kMaxFileChunkBytes))
 				return false;
 
 			out.payload = packet;
@@ -389,6 +406,9 @@ inline bool DeserializePacket(const char* data, size_t size, NetworkPacket& out)
                     case ArgumentType::Bool:    
                         char boolean; is.get(boolean); arg.boolValue = (boolean != 0);
                         break;
+                    default:
+                        // Unknown argument type: the rest of the packet cannot be parsed reliably.
+                        return false;
                 }
 
                 if (!is.good()) 
