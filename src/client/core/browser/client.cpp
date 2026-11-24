@@ -35,6 +35,20 @@ static inline std::string StripFragment(const std::string& url)
     return pos == std::string::npos ? url : url.substr(0, pos);
 }
 
+static inline bool IsAllowedNavigationUrl(const std::string& url)
+{
+    const auto colon = url.find(':');
+    if (colon == std::string::npos)
+        return false;
+
+    const std::string scheme = ToLower(url.substr(0, colon));
+    if (scheme == "http" || scheme == "https" || scheme == "data" || scheme == "blob")
+        return true;
+
+    const std::string lower = ToLower(url);
+    return lower == "about:blank" || lower == "about:srcdoc";
+}
+
 // Detect if URL points to a site that needs Referer/Origin help (YouTube/Twitch).
 static inline bool IsVideoSiteUrl(const std::string& url)
 {
@@ -92,6 +106,24 @@ CefRefPtr<BrowserClient> BrowserClient::Create(int id, BrowserManager& mgr, Audi
 BrowserClient::BrowserClient(int id, BrowserManager& mgr, AudioManager& audio, FocusManager* focus, NetworkManager& network)
 	: browserId_(id), manager_(mgr), audio_(audio), focus_(focus), network_(network)
 {
+}
+
+bool BrowserClient::OnBeforePopup(CefRefPtr<CefBrowser> browser,
+    CefRefPtr<CefFrame> frame,
+    int popup_id,
+    const CefString& target_url,
+    const CefString& target_frame_name,
+    CefLifeSpanHandler::WindowOpenDisposition target_disposition,
+    bool user_gesture,
+    const CefPopupFeatures& popupFeatures,
+    CefWindowInfo& windowInfo,
+    CefRefPtr<CefClient>& client,
+    CefBrowserSettings& settings,
+    CefRefPtr<CefDictionaryValue>& extra_info,
+    bool* no_javascript_access)
+{
+    LOG_WARN("[CEF] Browser {} blocked a popup to {}", browserId_, target_url.ToString());
+    return true;
 }
 
 void BrowserClient::OnAfterCreated(CefRefPtr<CefBrowser> browser)
@@ -286,6 +318,12 @@ bool BrowserClient::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
         bool user_gesture,
         bool is_redirect){
     const std::string url = request->GetURL().ToString();
+
+    if (!IsAllowedNavigationUrl(url))
+    {
+        LOG_WARN("[CEF] Browser {} blocked navigation to {}", browserId_, url);
+        return true;
+    }
 
     if (frame && frame->IsMain() &&
         StripFragment(frame->GetURL().ToString()) != StripFragment(url))
