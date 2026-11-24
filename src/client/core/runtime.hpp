@@ -52,6 +52,7 @@ private:
 	Runtime& operator=(Runtime&&) = delete;
 
 	std::atomic<bool> init_finalized_{ false };
+	std::atomic<bool> stopped_{ false };
 
 	std::unique_ptr<Logger> logger_;
 	std::unique_ptr<ConfigManager> config_;

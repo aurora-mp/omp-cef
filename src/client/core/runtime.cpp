@@ -315,6 +315,9 @@ void Runtime::FinalizeInitialization(HWND hwnd)
 
 void Runtime::Stop()
 {
+	if (stopped_.exchange(true, std::memory_order_acq_rel))
+		return;
+
 	if (app_)
 		app_->Shutdown();
 
@@ -351,7 +354,9 @@ void Runtime::Stop()
 		wndproc_.reset();
 	}
 
-	CursorHook::Instance().Shutdown(*hooks_);
+	if (hooks_)
+		CursorHook::Instance().Shutdown(*hooks_);
+    
 	RenderManager::Instance().Shutdown();
 
 	if (hooks_)

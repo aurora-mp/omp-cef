@@ -12,7 +12,7 @@ DWORD WINAPI AppInitializationThread(LPVOID)
 	return 0;
 }
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
 {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(hModule);
@@ -26,6 +26,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
         }
     }
     else if (reason == DLL_PROCESS_DETACH) {
+        if (reserved != nullptr) {
+            (void)runtime.release();
+            return TRUE;
+        }
+
         if (runtime) {
             runtime->Stop();
             runtime.reset();

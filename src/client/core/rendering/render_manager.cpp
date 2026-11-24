@@ -231,6 +231,7 @@ void RenderManager::Shutdown()
 
     DetachDevice();
 
+    hooks_ = nullptr;
     initialized_ = false;
 }
 
