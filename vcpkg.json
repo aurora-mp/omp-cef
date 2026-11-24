@@ -1,6 +1,6 @@
 {
   "name": "omp-cef",
-  "version-string": "1.4.1",
+  "version-string": "1.4.2",
   "builtin-baseline": "8f28427e139dc155faa17ce0055dd612019866ba",
   "features": {
     "client": {

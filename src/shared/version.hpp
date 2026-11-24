@@ -6,7 +6,7 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 4
-#define VERSION_PATCH 1
+#define VERSION_PATCH 2
 #define VERSION_BUILD 0
 
 static constexpr uint32_t MakeVersionU32(uint8_t maj, uint8_t min, uint8_t patch, uint8_t build)

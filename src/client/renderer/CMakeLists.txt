@@ -18,7 +18,7 @@ add_executable(${PROJECT_NAME} WIN32 ${RENDERER_SRC})
 
 add_win_version_resource(
     ${PROJECT_NAME}
-        VERSION "1.4.1.0"
+        VERSION "1.4.2.0"
         COMPANY "aurora-mp"
         PRODUCT_NAME "OMP CEF Renderer"
         FILE_DESC "CEF renderer subprocess"
