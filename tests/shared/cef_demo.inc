@@ -29,10 +29,12 @@
 #define CEF_DEMO_INVENTORY_ID           9110
 #define CEF_DEMO_NOTIFICATION_ID        9109
 #define CEF_DEMO_CAMERA_ID              9104
+#define CEF_DEMO_ISSUE66_ID             9120
 
 #define CEF_DEMO_WORLD3D_OBJECT_MODEL   14772
 #define CEF_DEMO_WORLD3D_TEXTURE_NAME   "CJ_TV_SCREEN"
 #define CEF_DEMO_INVALID_OBJECT_ID      (-1)
+#define CEF_DEMO_INVALID_LABEL          (Text3D:INVALID_3DTEXT_ID)
 
 #define CEF_DEMO_URL_INDEX              "http://cef/cef_demo/index.html"
 #define CEF_DEMO_URL_OVERLAY            "http://cef/cef_demo/overlay.html"
@@ -44,6 +46,7 @@
 #define CEF_DEMO_URL_RED                "http://cef/cef_demo/red.html"
 #define CEF_DEMO_URL_BLUE               "http://cef/cef_demo/blue.html"
 #define CEF_DEMO_URL_EMPTY              "http://cef/cef_demo/empty.html"
+#define CEF_DEMO_URL_ISSUE66            "http://cef/cef_demo/issue66.html"
 
 #define COLOR_INFO                      0xFDBC16FF
 #define COLOR_OK                        0x2CF58FFF
@@ -80,7 +83,9 @@ forward CefDemo_OnPing(playerid, browserid, const message[], value, bool:flag);
 new 
     bool:gCefDemoReady[MAX_PLAYERS],
     gCefDemoWorld3DObject[MAX_PLAYERS],
-    gCefDemoNotifyCounter[MAX_PLAYERS];
+    gCefDemoNotifyCounter[MAX_PLAYERS],
+    bool:gCefDemoIssue66[MAX_PLAYERS],
+    Text3D:gCefDemoIssue66Label[MAX_PLAYERS];
 
 
 /*
@@ -96,6 +101,8 @@ public OnPlayerConnect(playerid)
     gCefDemoReady[playerid] = false;
     gCefDemoNotifyCounter[playerid] = 0;
     gCefDemoWorld3DObject[playerid] = CEF_DEMO_INVALID_OBJECT_ID;
+    gCefDemoIssue66[playerid] = false;
+    gCefDemoIssue66Label[playerid] = CEF_DEMO_INVALID_LABEL;
     return 1;
 }
 
@@ -338,6 +345,10 @@ public OnPlayerCommandText(playerid, cmdtext[])
     {
         CEF_DestroyBrowser(playerid, CEF_DEMO_NOTIFICATION_ID);
         CEF_DestroyBrowser(playerid, CEF_DEMO_INVENTORY_ID);
+        SendClientMessage(playerid, COLOR_OK, "[CEF Demo] Layer test browsers destroyed.");
+        return 1;
+    }
+
     if (!strcmp(cmdtext, "/camera", true))
     {
         CEF_CreateBrowser(
@@ -640,6 +651,29 @@ public OnPlayerCommandText(playerid, cmdtext[])
         return 1;
     }
 
+    // Issue #66: overlay drawn below SA-MP chat, 3D text labels and nametags
+    if (!strcmp(cmdtext, "/issue66", true))
+    {
+        if (gCefDemoIssue66[playerid])
+            CefDemo_Issue66Stop(playerid);
+        else
+            CefDemo_Issue66Start(playerid);
+        return 1;
+    }
+
+    if (!strcmp(cmdtext, "/issue66focus", true))
+    {
+        if (!gCefDemoIssue66[playerid])
+        {
+            SendClientMessage(playerid, COLOR_ERROR, "[Issue66] Run /issue66 first.");
+            return 1;
+        }
+
+        CEF_FocusBrowser(playerid, CEF_DEMO_ISSUE66_ID, true);
+        SendClientMessage(playerid, COLOR_OK, "[Issue66] Overlay focused. Use its Close button to end the test.");
+        return 1;
+    }
+
     return 0;
 }
 
@@ -681,6 +715,12 @@ public CefDemo_RecreateAll(playerid)
 
 public CefDemo_OnButton(playerid, browserid, const action[])
 {
+    if (browserid == CEF_DEMO_ISSUE66_ID && !strcmp(action, "issue66_close"))
+    {
+        CefDemo_Issue66Stop(playerid);
+        return 1;
+    }
+
     new msg[144];
     format(msg, sizeof msg, "[CEF Demo] JS button event from browser %d: %s", browserid, action);
     SendClientMessage(playerid, COLOR_OK, msg);
@@ -740,6 +780,8 @@ static CefDemo_Reset()
         gCefDemoReady[playerid] = false;
         gCefDemoNotifyCounter[playerid] = 0;
         gCefDemoWorld3DObject[playerid] = CEF_DEMO_INVALID_OBJECT_ID;
+        gCefDemoIssue66[playerid] = false;
+        gCefDemoIssue66Label[playerid] = CEF_DEMO_INVALID_LABEL;
     }
 
     return 1;
@@ -749,6 +791,13 @@ static CefDemo_ResetForPlayer(playerid)
 {
     gCefDemoReady[playerid] = false;
     gCefDemoNotifyCounter[playerid] = 0;
+    gCefDemoIssue66[playerid] = false;
+
+    if (gCefDemoIssue66Label[playerid] != CEF_DEMO_INVALID_LABEL)
+    {
+        Delete3DTextLabel(gCefDemoIssue66Label[playerid]);
+        gCefDemoIssue66Label[playerid] = CEF_DEMO_INVALID_LABEL;
+    }
 
     if (gCefDemoWorld3DObject[playerid] != CEF_DEMO_INVALID_OBJECT_ID)
     {
@@ -789,6 +838,57 @@ static CefDemo_SendHelp(playerid)
     SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] World3D: /world3d /world3dmove /world3dattach /world3ddetach /world3dhide /world3dshow /world3dred /world3dblue /world3dempty /world3danim");
     SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] Stress: /cefstress /cefstressred /cefstressblue /cefstressempty /cefstressanim /cefstresshide /cefstressshow /cefstressdestroy");
     SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] Utils: /hudhide /hudshow /chatinputoff /chatinputon /spawnoff /spawnon /escgta /esccustom /escdisabled");
+    SendClientMessage(playerid, COLOR_INFO, "[CEF Demo] Issue #66 (overlay vs SA-MP 2D): /issue66 /issue66focus");
+    return 1;
+}
+
+static CefDemo_Issue66Start(playerid)
+{
+    new Float:x, Float:y, Float:z, Float:angle;
+    GetPlayerPos(playerid, x, y, z);
+    GetPlayerFacingAngle(playerid, angle);
+
+    // A 3D text label 3 m in front of the player, at eye level, so it sits in the middle of the screen.
+    x += 3.0 * floatsin(-angle, degrees);
+    y += 3.0 * floatcos(-angle, degrees);
+
+    if (gCefDemoIssue66Label[playerid] != CEF_DEMO_INVALID_LABEL)
+        Delete3DTextLabel(gCefDemoIssue66Label[playerid]);
+
+    gCefDemoIssue66Label[playerid] = Create3DTextLabel(
+        "{FF4545}ISSUE #66 LABEL\n{FFFFFF}If you can read me over the CEF panel,\nthe overlay is drawn below SA-MP.",
+        0xFFFFFFFF, x, y, z + 0.6, 30.0, GetPlayerVirtualWorld(playerid)
+    );
+
+    // Fill the chat so its lines sit behind the panel.
+    for (new i = 1; i <= 8; i++)
+    {
+        new msg[96];
+        format(msg, sizeof msg, "[Issue66] Chat line %d: if this is readable over the CEF panel, the bug reproduces.", i);
+        SendClientMessage(playerid, COLOR_MUTED, msg);
+    }
+
+    CEF_CreateBrowser(playerid, CEF_DEMO_ISSUE66_ID, CEF_DEMO_URL_ISSUE66, false, true, 0.0, 0.0);
+    CEF_SetBrowserLayer(playerid, CEF_DEMO_ISSUE66_ID, 100);
+    gCefDemoIssue66[playerid] = true;
+
+    SendClientMessage(playerid, COLOR_OK, "[Issue66] Opaque overlay created. Expected: no chat line, label or nametag visible over it.");
+    SendClientMessage(playerid, COLOR_OK, "[Issue66] /issue66focus to focus it (like a menu), /issue66 again to remove it.");
+    return 1;
+}
+
+static CefDemo_Issue66Stop(playerid)
+{
+    CEF_DestroyBrowser(playerid, CEF_DEMO_ISSUE66_ID);
+
+    if (gCefDemoIssue66Label[playerid] != CEF_DEMO_INVALID_LABEL)
+    {
+        Delete3DTextLabel(gCefDemoIssue66Label[playerid]);
+        gCefDemoIssue66Label[playerid] = CEF_DEMO_INVALID_LABEL;
+    }
+
+    gCefDemoIssue66[playerid] = false;
+    SendClientMessage(playerid, COLOR_OK, "[Issue66] Test ended, overlay and label removed.");
     return 1;
 }
 

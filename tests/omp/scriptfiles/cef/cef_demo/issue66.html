@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Issue #66</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: Segoe UI, Arial, sans-serif; color: #fff; }
+  /* Fully opaque checkerboard: nothing from the game should be visible through it. */
+  body {
+    background-color: #1b1f3a;
+    background-image:
+      linear-gradient(45deg, #232850 25%, transparent 25%, transparent 75%, #232850 75%),
+      linear-gradient(45deg, #232850 25%, transparent 25%, transparent 75%, #232850 75%);
+    background-size: 64px 64px;
+    background-position: 0 0, 32px 32px;
+  }
+  .zone { position: absolute; border: 3px dashed #2dd4bf; background: #0f1226; display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px; }
+  .chat { left: 2%; top: 2%; width: 46%; height: 34%; }
+  .center { left: 25%; top: 30%; width: 50%; height: 40%; flex-direction: column; gap: 14px; border-color: #7c5cff; }
+  h1 { margin: 0; font-size: 40px; }
+  p { margin: 0; font-size: 18px; line-height: 1.5; color: #cbd5e1; }
+  button { font-size: 18px; padding: 10px 28px; border: 0; border-radius: 8px; background: #ff4545; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+  <div class="zone chat"><p><b>SA-MP CHAT AREA</b><br>Chat lines must NOT be readable over this box.</p></div>
+  <div class="zone center">
+    <h1>Issue #66 test</h1>
+    <p>This overlay is fully opaque, at layer 100.<br>
+       Expected: no chat line, 3D text label or nametag drawn over it.<br>
+       If you can see any of them, the overlay is drawn below SA-MP.</p>
+    <button id="close">Close (when focused)</button>
+  </div>
+  <script src="js/cef-bridge.js"></script>
+  <script>
+    document.getElementById('close').addEventListener('click', function () {
+      window.CefDemo.emit('demo:button', 'issue66_close');
+    });
+  </script>
+</body>
+</html>
